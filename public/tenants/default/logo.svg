@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" fill="none">
+  <g>
+    <rect x="2" y="6" width="36" height="36" rx="9" fill="currentColor" />
+    <path d="M11 29V19l9-5 9 5v10l-9 5-9-5z" fill="white" opacity="0.95"/>
+    <path d="M20 14v20" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+  </g>
+  <text x="50" y="32" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="currentColor">Campus</text>
+  <text x="127" y="32" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="20" font-weight="400" fill="currentColor" opacity="0.6">Educativo</text>
+</svg>

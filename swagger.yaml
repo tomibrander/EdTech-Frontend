@@ -1,0 +1,1427 @@
+openapi: 3.0.3
+info:
+  title: Plataforma Educativa - API
+  description: |
+    Backend para sistema de gestión educativa con integración a Google Workspace y Google Classroom.
+
+    ## Autenticación
+    Todos los endpoints (salvo los marcados como `público`) requieren un JWT en el header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Roles
+    - `superadmin` — acceso total
+    - `director` — paneles, admisiones, reportes
+    - `docente` — cursos, tareas, calificaciones, mensajes
+    - `alumno` — dashboard personal
+    - `padre` — mensajería, anuncios
+  version: 1.0.0
+  contact:
+    name: Soporte técnico
+
+servers:
+  - url: https://api.colegio.edu.ar/v1
+    description: Producción
+  - url: http://localhost:3000/v1
+    description: Local
+
+tags:
+  - name: Auth
+    description: Autenticación y sesión
+  - name: Admisión
+    description: ATS unificado — prospectos y postulaciones laborales
+  - name: Alumnos
+    description: Gestión de alumnos y cursos
+  - name: Asistencia
+    description: Registro interno de asistencia
+  - name: Mensajes
+    description: Comunicación padres-docentes y anuncios
+  - name: Classroom
+    description: Proxy hacia Google Classroom API
+  - name: Workspace
+    description: Administración de cuentas Google Workspace
+  - name: Dashboard
+    description: Vistas agregadas por rol
+
+# ─────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────
+paths:
+
+  # ── AUTH ──────────────────────────────────
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      description: Retorna un access token (JWT, 1h) y un refresh token (30d).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "maria.docente@colegio.edu.ar"
+              password: "MiPassword123"
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+                user:
+                  id: "usr_01HXZ"
+                  email: "maria.docente@colegio.edu.ar"
+                  role: "docente"
+                  displayName: "María Pérez"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      description: Invalida el refresh token del usuario.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+            example:
+              refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+      responses:
+        '204':
+          description: Sesión cerrada
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renovar access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+            example:
+              refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+      responses:
+        '200':
+          description: Nuevo access token
+          content:
+            application/json:
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.NEW..."
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Solicitar recuperación de contraseña
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              email: "padre@gmail.com"
+      responses:
+        '200':
+          description: Email de recuperación enviado (siempre 200 para evitar enumeración)
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Resetear contraseña con token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              token: "a1b2c3d4e5f6..."
+              newPassword: "NuevaPassword456"
+      responses:
+        '200':
+          description: Contraseña actualizada
+        '400':
+          description: Token inválido o expirado
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Perfil del usuario autenticado
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              example:
+                id: "usr_01HXZ"
+                email: "maria.docente@colegio.edu.ar"
+                role: "docente"
+                displayName: "María Pérez"
+                googleAccountId: "117890123456789012345"
+                createdAt: "2024-03-01T10:00:00Z"
+
+  # ── ADMISIÓN ──────────────────────────────
+  /admissions/prospects:
+    post:
+      tags: [Admisión]
+      summary: Registrar nuevo prospecto (formulario web)
+      description: |
+        Endpoint público. Recibe los datos del formulario de admisión y los persiste en la DB con estado `pendiente`.
+        No crea cuenta en Google Workspace todavía.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProspectCreate'
+            example:
+              studentName: "Lucas Rodríguez"
+              birthDate: "2015-06-14"
+              gradeApplying: "2do primaria"
+              parentName: "Carlos Rodríguez"
+              parentEmail: "carlos.rodriguez@gmail.com"
+              parentPhone: "+54 11 5555-1234"
+              notes: "El alumno tiene experiencia en colegio bilingüe"
+      responses:
+        '201':
+          description: Prospecto registrado
+          content:
+            application/json:
+              example:
+                id: "pros_08ABX"
+                status: "pendiente"
+                createdAt: "2025-04-09T14:22:00Z"
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    get:
+      tags: [Admisión]
+      summary: Listar prospectos
+      description: Solo accesible para directores y admins.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, entrevistado, aceptado, rechazado, alta]
+          example: "aceptado"
+        - name: grade
+          in: query
+          schema:
+            type: string
+          example: "2do primaria"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2025-01-01"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Lista paginada de prospectos
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "pros_08ABX"
+                    studentName: "Lucas Rodríguez"
+                    gradeApplying: "2do primaria"
+                    status: "aceptado"
+                    parentEmail: "carlos.rodriguez@gmail.com"
+                    createdAt: "2025-04-09T14:22:00Z"
+                  - id: "pros_09CDE"
+                    studentName: "Valentina López"
+                    gradeApplying: "3er primaria"
+                    status: "entrevistado"
+                    parentEmail: "ana.lopez@outlook.com"
+                    createdAt: "2025-04-08T09:10:00Z"
+                pagination:
+                  page: 1
+                  limit: 20
+                  total: 47
+
+  /admissions/prospects/{id}:
+    get:
+      tags: [Admisión]
+      summary: Detalle de un prospecto
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Prospecto encontrado
+          content:
+            application/json:
+              example:
+                id: "pros_08ABX"
+                studentName: "Lucas Rodríguez"
+                birthDate: "2015-06-14"
+                gradeApplying: "2do primaria"
+                status: "aceptado"
+                parentName: "Carlos Rodríguez"
+                parentEmail: "carlos.rodriguez@gmail.com"
+                parentPhone: "+54 11 5555-1234"
+                notes: "El alumno tiene experiencia en colegio bilingüe"
+                history:
+                  - status: "pendiente"
+                    changedAt: "2025-04-09T14:22:00Z"
+                    changedBy: null
+                  - status: "entrevistado"
+                    changedAt: "2025-04-10T11:00:00Z"
+                    changedBy: "usr_ADMIN1"
+                  - status: "aceptado"
+                    changedAt: "2025-04-11T09:30:00Z"
+                    changedBy: "usr_ADMIN1"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admissions/prospects/{id}/status:
+    patch:
+      tags: [Admisión]
+      summary: Actualizar estado del prospecto
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              status: "entrevistado"
+              comment: "Entrevista realizada el 10/04. Familia interesada."
+      responses:
+        '200':
+          description: Estado actualizado
+          content:
+            application/json:
+              example:
+                id: "pros_08ABX"
+                status: "entrevistado"
+                updatedAt: "2025-04-10T11:00:00Z"
+
+  /admissions/prospects/{id}/enroll:
+    post:
+      tags: [Admisión]
+      summary: Dar de alta a un prospecto aceptado
+      description: |
+        Flujo completo de alta:
+        1. Valida que el prospecto tenga estado `aceptado`
+        2. Crea el usuario en la DB interna con rol `alumno`
+        3. Llama a Google Workspace (`POST /admin/directory/v1/users`) para crear cuenta institucional
+        4. Llama a Google Classroom (`POST /v1/courses/{courseId}/students`) para inscribir al alumno
+        5. Actualiza el estado del prospecto a `alta`
+
+        En caso de fallo parcial (ej: Workspace OK pero Classroom falla), el job queda en cola para reintento.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              courseId: "course_5B_2025"
+              classroomCourseId: "123456789"
+              institutionalEmail: "lucas.rodriguez@colegio.edu.ar"
+      responses:
+        '201':
+          description: Alta realizada exitosamente
+          content:
+            application/json:
+              example:
+                userId: "usr_0ZLUQ"
+                institutionalEmail: "lucas.rodriguez@colegio.edu.ar"
+                googleAccountId: "108765432109876543210"
+                classroomEnrolled: true
+                prospectStatus: "alta"
+        '409':
+          description: El prospecto no está en estado `aceptado`
+        '502':
+          description: Error al comunicarse con Google APIs (ver campo `failedStep`)
+          content:
+            application/json:
+              example:
+                error: "GOOGLE_WORKSPACE_ERROR"
+                failedStep: "workspace_user_create"
+                message: "La cuenta ya existe en Google Workspace"
+
+  /admissions/jobs:
+    post:
+      tags: [Admisión]
+      summary: Postulación laboral
+      description: Público. No crea acceso al campus ni cuenta institucional.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              position: "Docente de Matemática"
+              applicantName: "Jorge Fernández"
+              email: "jorge.fernandez@gmail.com"
+              phone: "+54 9 351 444-5678"
+              cvUrl: "https://drive.google.com/file/d/1abc..."
+              coverLetter: "Me postulo para el cargo porque..."
+      responses:
+        '201':
+          description: Postulación recibida
+          content:
+            application/json:
+              example:
+                id: "job_APP_022"
+                status: "recibida"
+                createdAt: "2025-04-09T15:00:00Z"
+
+    get:
+      tags: [Admisión]
+      summary: Listar postulaciones laborales
+      parameters:
+        - name: position
+          in: query
+          schema:
+            type: string
+          example: "Docente de Matemática"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [recibida, en_revision, entrevistado, contratado, descartado]
+      responses:
+        '200':
+          description: Lista de postulaciones
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "job_APP_022"
+                    applicantName: "Jorge Fernández"
+                    position: "Docente de Matemática"
+                    status: "en_revision"
+                    email: "jorge.fernandez@gmail.com"
+                    createdAt: "2025-04-09T15:00:00Z"
+                pagination:
+                  page: 1
+                  total: 12
+
+  /admissions/jobs/{id}/status:
+    patch:
+      tags: [Admisión]
+      summary: Actualizar estado de postulación laboral
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              status: "entrevistado"
+              comment: "Entrevista agendada para el 15/04"
+      responses:
+        '200':
+          description: Estado actualizado
+
+  # ── ALUMNOS / CURSOS ──────────────────────
+  /students:
+    get:
+      tags: [Alumnos]
+      summary: Listar alumnos
+      parameters:
+        - name: courseId
+          in: query
+          schema:
+            type: string
+          example: "course_5B_2025"
+        - name: year
+          in: query
+          schema:
+            type: integer
+          example: 2025
+        - name: search
+          in: query
+          schema:
+            type: string
+          example: "Rodriguez"
+      responses:
+        '200':
+          description: Lista de alumnos
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "usr_0ZLUQ"
+                    displayName: "Lucas Rodríguez"
+                    institutionalEmail: "lucas.rodriguez@colegio.edu.ar"
+                    courseId: "course_5B_2025"
+                    courseName: "5to B"
+                    googleAccountId: "108765432109876543210"
+                  - id: "usr_0ABCD"
+                    displayName: "Valentina López"
+                    institutionalEmail: "valentina.lopez@colegio.edu.ar"
+                    courseId: "course_5B_2025"
+                    courseName: "5to B"
+                    googleAccountId: "107654321098765432109"
+                pagination:
+                  page: 1
+                  total: 28
+
+  /students/{id}:
+    get:
+      tags: [Alumnos]
+      summary: Perfil completo del alumno
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Perfil del alumno
+          content:
+            application/json:
+              example:
+                id: "usr_0ZLUQ"
+                displayName: "Lucas Rodríguez"
+                birthDate: "2015-06-14"
+                institutionalEmail: "lucas.rodriguez@colegio.edu.ar"
+                googleAccountId: "108765432109876543210"
+                courseId: "course_5B_2025"
+                courseName: "5to B"
+                parents:
+                  - name: "Carlos Rodríguez"
+                    email: "carlos.rodriguez@gmail.com"
+                    phone: "+54 11 5555-1234"
+                enrolledAt: "2025-03-01T00:00:00Z"
+
+  /students/{id}/dashboard:
+    get:
+      tags: [Alumnos]
+      summary: Dashboard del alumno
+      description: |
+        Combina datos de Google Classroom (tareas, exámenes, calificaciones)
+        con datos internos (asistencia). Los exámenes se identifican porque el
+        título contiene la palabra `[EXAMEN]`.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Vista consolidada del alumno
+          content:
+            application/json:
+              example:
+                student:
+                  id: "usr_0ZLUQ"
+                  displayName: "Lucas Rodríguez"
+                  courseName: "5to B"
+                upcomingWork:
+                  - id: "cw_111"
+                    title: "[EXAMEN] Fracciones - Matemática"
+                    type: "exam"
+                    dueDate: "2025-04-15T08:00:00Z"
+                    subject: "Matemática"
+                    status: "pendiente"
+                  - id: "cw_222"
+                    title: "Ejercicios de redacción - Lengua"
+                    type: "task"
+                    dueDate: "2025-04-12T23:59:00Z"
+                    subject: "Lengua"
+                    status: "entregado"
+                recentGrades:
+                  - subject: "Matemática"
+                    assignmentTitle: "Multiplicación de decimales"
+                    grade: 8.5
+                    maxGrade: 10
+                    gradedAt: "2025-04-05T00:00:00Z"
+                attendance:
+                  totalDays: 60
+                  presentDays: 57
+                  absentDays: 3
+                  percentage: 95.0
+
+  /courses:
+    get:
+      tags: [Alumnos]
+      summary: Listar cursos
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+          example: 2025
+      responses:
+        '200':
+          description: Lista de cursos
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "course_5B_2025"
+                    name: "5to B"
+                    year: 2025
+                    classroomCourseId: "123456789"
+                    teacherId: "usr_TEACH1"
+                    teacherName: "María Pérez"
+                    studentCount: 28
+                  - id: "course_6A_2025"
+                    name: "6to A"
+                    year: 2025
+                    classroomCourseId: "987654321"
+                    teacherId: "usr_TEACH2"
+                    teacherName: "Roberto García"
+                    studentCount: 25
+
+    post:
+      tags: [Alumnos]
+      summary: Crear curso
+      description: |
+        Crea el curso en la DB interna y llama a `POST /v1/courses` en Google Classroom.
+        Solo superadmin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              name: "5to B"
+              year: 2025
+              section: "B"
+              teacherId: "usr_TEACH1"
+              descriptionHeading: "Quinto año sección B — 2025"
+      responses:
+        '201':
+          description: Curso creado
+          content:
+            application/json:
+              example:
+                id: "course_5B_2025"
+                name: "5to B"
+                classroomCourseId: "123456789"
+                enrollmentCode: "abc1xyz"
+                createdAt: "2025-03-01T00:00:00Z"
+
+  /courses/{id}/students:
+    post:
+      tags: [Alumnos]
+      summary: Agregar alumno a un curso
+      description: Llama a `courses.students.create` en Google Classroom.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              studentId: "usr_0ZLUQ"
+      responses:
+        '201':
+          description: Alumno agregado al curso
+          content:
+            application/json:
+              example:
+                courseId: "course_5B_2025"
+                studentId: "usr_0ZLUQ"
+                classroomEnrolled: true
+                enrolledAt: "2025-03-01T08:00:00Z"
+
+  /courses/{id}/students/{studentId}:
+    delete:
+      tags: [Alumnos]
+      summary: Remover alumno de un curso
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Alumno removido
+
+  # ── ASISTENCIA ────────────────────────────
+  /attendance:
+    post:
+      tags: [Asistencia]
+      summary: Registrar asistencia
+      description: Registro interno, no se sincroniza con Google Classroom.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              courseId: "course_5B_2025"
+              date: "2025-04-09"
+              records:
+                - studentId: "usr_0ZLUQ"
+                  status: "presente"
+                - studentId: "usr_0ABCD"
+                  status: "ausente"
+                  note: "Avisó con anticipación"
+                - studentId: "usr_0EFGH"
+                  status: "tarde"
+      responses:
+        '201':
+          description: Asistencia registrada
+          content:
+            application/json:
+              example:
+                date: "2025-04-09"
+                courseId: "course_5B_2025"
+                savedCount: 3
+
+    get:
+      tags: [Asistencia]
+      summary: Consultar registros de asistencia
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: string
+        - name: courseId
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2025-04-01"
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2025-04-09"
+      responses:
+        '200':
+          description: Registros de asistencia
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "att_001"
+                    studentId: "usr_0ZLUQ"
+                    studentName: "Lucas Rodríguez"
+                    date: "2025-04-09"
+                    status: "presente"
+                  - id: "att_002"
+                    studentId: "usr_0ZLUQ"
+                    studentName: "Lucas Rodríguez"
+                    date: "2025-04-08"
+                    status: "ausente"
+                    note: "Avisó con anticipación"
+
+  /attendance/{id}:
+    patch:
+      tags: [Asistencia]
+      summary: Corregir un registro de asistencia
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              status: "tarde"
+              note: "Llegó 15 minutos tarde"
+      responses:
+        '200':
+          description: Registro actualizado
+
+  /attendance/summary/{studentId}:
+    get:
+      tags: [Asistencia]
+      summary: Resumen de asistencia del alumno
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: integer
+          example: 2025
+      responses:
+        '200':
+          description: Resumen porcentual
+          content:
+            application/json:
+              example:
+                studentId: "usr_0ZLUQ"
+                studentName: "Lucas Rodríguez"
+                year: 2025
+                totalDays: 60
+                presentDays: 57
+                absentDays: 2
+                lateDays: 1
+                percentage: 95.0
+                byMonth:
+                  - month: "2025-03"
+                    present: 20
+                    absent: 1
+                    late: 0
+                  - month: "2025-04"
+                    present: 7
+                    absent: 1
+                    late: 1
+
+  # ── MENSAJES ──────────────────────────────
+  /messages/threads:
+    get:
+      tags: [Mensajes]
+      summary: Listar hilos del usuario autenticado
+      responses:
+        '200':
+          description: Hilos de conversación
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "thread_001"
+                    participants:
+                      - id: "usr_0ZLUQ_parent"
+                        name: "Carlos Rodríguez"
+                        role: "padre"
+                      - id: "usr_TEACH1"
+                        name: "María Pérez"
+                        role: "docente"
+                    subject: "Consulta sobre examen del martes"
+                    lastMessage: "Hola, quería consultar..."
+                    lastMessageAt: "2025-04-09T10:30:00Z"
+                    unreadCount: 2
+
+    post:
+      tags: [Mensajes]
+      summary: Iniciar nuevo hilo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              recipientId: "usr_TEACH1"
+              subject: "Consulta sobre examen del martes"
+              message: "Hola María, quería consultar si el examen cubre toda la unidad 3."
+      responses:
+        '201':
+          description: Hilo creado
+          content:
+            application/json:
+              example:
+                id: "thread_001"
+                createdAt: "2025-04-09T10:30:00Z"
+
+  /messages/threads/{id}:
+    get:
+      tags: [Mensajes]
+      summary: Mensajes de un hilo
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Mensajes paginados
+          content:
+            application/json:
+              example:
+                thread:
+                  id: "thread_001"
+                  subject: "Consulta sobre examen del martes"
+                messages:
+                  - id: "msg_001"
+                    senderId: "usr_0ZLUQ_parent"
+                    senderName: "Carlos Rodríguez"
+                    senderRole: "padre"
+                    body: "Hola María, quería consultar si el examen cubre toda la unidad 3."
+                    sentAt: "2025-04-09T10:30:00Z"
+                    read: true
+                  - id: "msg_002"
+                    senderId: "usr_TEACH1"
+                    senderName: "María Pérez"
+                    senderRole: "docente"
+                    body: "Hola Carlos! Sí, el examen abarca unidad 3 completa. Saludos."
+                    sentAt: "2025-04-09T11:00:00Z"
+                    read: false
+                pagination:
+                  page: 1
+                  total: 2
+
+    post:
+      tags: [Mensajes]
+      summary: Enviar mensaje en un hilo
+      description: |
+        Persiste el mensaje y dispara una notificación por email al padre
+        (si el destinatario es padre, ya que su cuenta no es de Workspace).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              body: "Hola Carlos! Sí, el examen abarca unidad 3 completa. Saludos."
+      responses:
+        '201':
+          description: Mensaje enviado
+          content:
+            application/json:
+              example:
+                id: "msg_002"
+                sentAt: "2025-04-09T11:00:00Z"
+                emailNotificationSent: true
+
+  /messages/announcements:
+    post:
+      tags: [Mensajes]
+      summary: Publicar anuncio, nota o sanción
+      description: |
+        Permite controlar la ventana horaria en la que los destinatarios pueden ver el anuncio.
+        Útil para retrasar la publicación de notas o sanciones hasta un horario apropiado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              title: "Calificaciones examen unidad 3"
+              body: "Se publicaron las notas del examen de Fracciones. Promedio: 7.8"
+              courseId: "course_5B_2025"
+              audience: ["alumnos", "padres"]
+              publishAt: "2025-04-10T18:00:00Z"
+              visibleUntil: "2025-04-17T23:59:00Z"
+      responses:
+        '201':
+          description: Anuncio creado
+          content:
+            application/json:
+              example:
+                id: "ann_088"
+                status: "programado"
+                publishAt: "2025-04-10T18:00:00Z"
+
+    get:
+      tags: [Mensajes]
+      summary: Listar anuncios
+      description: Solo devuelve anuncios cuya ventana de publicación está activa para el rol del usuario.
+      parameters:
+        - name: courseId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Anuncios visibles
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "ann_087"
+                    title: "Recordatorio: acto del viernes"
+                    body: "Se recuerda que el viernes habrá acto escolar a las 10hs."
+                    publishedAt: "2025-04-08T18:00:00Z"
+                    author: "María Pérez"
+                  - id: "ann_086"
+                    title: "Cambio de horario Educación Física"
+                    body: "Esta semana Ed. Física pasa al miércoles 4ta hora."
+                    publishedAt: "2025-04-07T08:00:00Z"
+                    author: "Roberto García"
+
+  /messages/announcements/{id}/schedule:
+    patch:
+      tags: [Mensajes]
+      summary: Configurar horario de visibilidad de un anuncio
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              publishAt: "2025-04-11T18:00:00Z"
+              visibleUntil: "2025-04-18T23:59:00Z"
+      responses:
+        '200':
+          description: Horario actualizado
+
+  # ── CLASSROOM PROXY ───────────────────────
+  /classroom/courses/{courseId}/work:
+    get:
+      tags: [Classroom]
+      summary: Listar tareas y exámenes
+      description: |
+        Llama a Google Classroom `courseWork.list`. Los ítems cuyo título comienza
+        con `[EXAMEN]` se marcan con `type: "exam"`, el resto como `type: "task"`.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "course_5B_2025"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [task, exam, all]
+          example: "all"
+      responses:
+        '200':
+          description: Trabajos del curso
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "cw_111"
+                    title: "[EXAMEN] Fracciones - Matemática"
+                    type: "exam"
+                    dueDate: "2025-04-15T08:00:00Z"
+                    maxPoints: 10
+                    state: "PUBLISHED"
+                  - id: "cw_222"
+                    title: "Ejercicios de redacción - Lengua"
+                    type: "task"
+                    dueDate: "2025-04-12T23:59:00Z"
+                    maxPoints: 10
+                    state: "PUBLISHED"
+
+    post:
+      tags: [Classroom]
+      summary: Crear tarea o examen en Classroom
+      description: Llama a `courseWork.create` de Google Classroom API.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              title: "[EXAMEN] Números romanos - Historia"
+              description: "Estudiar del capítulo 4 al 7."
+              dueDate: "2025-04-20"
+              dueTime: "08:00"
+              maxPoints: 10
+              type: "exam"
+      responses:
+        '201':
+          description: Trabajo creado en Classroom
+          content:
+            application/json:
+              example:
+                classroomWorkId: "444555666"
+                title: "[EXAMEN] Números romanos - Historia"
+                createdAt: "2025-04-09T12:00:00Z"
+
+  /classroom/courses/{courseId}/grades:
+    get:
+      tags: [Classroom]
+      summary: Obtener calificaciones del curso
+      description: Llama a `studentSubmissions.list` para traer notas de todos los alumnos.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workId
+          in: query
+          schema:
+            type: string
+          description: Filtrar por tarea/examen específico
+      responses:
+        '200':
+          description: Calificaciones
+          content:
+            application/json:
+              example:
+                courseId: "course_5B_2025"
+                data:
+                  - studentId: "usr_0ZLUQ"
+                    studentName: "Lucas Rodríguez"
+                    workId: "cw_111"
+                    workTitle: "[EXAMEN] Fracciones"
+                    grade: 8.5
+                    maxPoints: 10
+                    state: "TURNED_IN"
+                    gradedAt: "2025-04-16T10:00:00Z"
+
+    post:
+      tags: [Classroom]
+      summary: Subir calificaciones a Classroom
+      description: Llama a `studentSubmissions.patch` con `assignedGrade` para cada alumno.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              workId: "cw_111"
+              grades:
+                - studentId: "usr_0ZLUQ"
+                  grade: 8.5
+                - studentId: "usr_0ABCD"
+                  grade: 7.0
+                - studentId: "usr_0EFGH"
+                  grade: 9.5
+      responses:
+        '200':
+          description: Calificaciones subidas
+          content:
+            application/json:
+              example:
+                updatedCount: 3
+                failedCount: 0
+
+  /classroom/ai-query:
+    post:
+      tags: [Classroom]
+      summary: Asistente IA — consulta en lenguaje natural
+      description: |
+        El asistente consulta Google Classroom (notas, tareas, horarios) en nombre
+        del usuario autenticado y responde en lenguaje natural.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              query: "¿Cuándo es el próximo examen de Matemática y qué temas entran?"
+      responses:
+        '200':
+          description: Respuesta del asistente
+          content:
+            application/json:
+              example:
+                answer: "El próximo examen de Matemática es el martes 15 de abril. Según la descripción en Classroom, abarca Fracciones y Decimales (unidad 3 completa)."
+                sources:
+                  - type: "classroom_work"
+                    id: "cw_111"
+                    title: "[EXAMEN] Fracciones - Matemática"
+                    dueDate: "2025-04-15T08:00:00Z"
+
+  # ── WORKSPACE ─────────────────────────────
+  /workspace/users:
+    post:
+      tags: [Workspace]
+      summary: Crear cuenta institucional
+      description: |
+        Llama a `POST /admin/directory/v1/users` de Google Workspace.
+        Se ejecuta automáticamente desde `/admissions/prospects/:id/enroll`
+        pero también puede llamarse manualmente para docentes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              userId: "usr_0ZLUQ"
+              firstName: "Lucas"
+              lastName: "Rodríguez"
+              institutionalEmail: "lucas.rodriguez@colegio.edu.ar"
+              orgUnitPath: "/Alumnos/Primaria/5to"
+              role: "alumno"
+      responses:
+        '201':
+          description: Cuenta creada en Google Workspace
+          content:
+            application/json:
+              example:
+                googleAccountId: "108765432109876543210"
+                institutionalEmail: "lucas.rodriguez@colegio.edu.ar"
+                orgUnitPath: "/Alumnos/Primaria/5to"
+                createdAt: "2025-04-09T08:00:00Z"
+
+  /workspace/users/{googleId}/ou:
+    patch:
+      tags: [Workspace]
+      summary: Mover usuario a otra unidad organizativa
+      parameters:
+        - name: googleId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "108765432109876543210"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              orgUnitPath: "/Alumnos/Primaria/6to"
+      responses:
+        '200':
+          description: OU actualizada
+
+  /workspace/users/{googleId}:
+    delete:
+      tags: [Workspace]
+      summary: Suspender cuenta al dar de baja
+      parameters:
+        - name: googleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Cuenta suspendida en Google Workspace
+
+  /workspace/groups:
+    post:
+      tags: [Workspace]
+      summary: Crear grupo de Google
+      description: Crea un grupo de Google Workspace (por curso o rol).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              name: "5to B 2025"
+              email: "5tob-2025@colegio.edu.ar"
+              description: "Grupo del curso 5to B año 2025"
+              members:
+                - "lucas.rodriguez@colegio.edu.ar"
+                - "valentina.lopez@colegio.edu.ar"
+      responses:
+        '201':
+          description: Grupo creado
+          content:
+            application/json:
+              example:
+                googleGroupId: "grp_5B_2025"
+                email: "5tob-2025@colegio.edu.ar"
+                memberCount: 2
+
+  # ── DASHBOARDS ────────────────────────────
+  /dashboard/student:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard del alumno
+      description: Vista personal con materias, tareas, exámenes y asistencia.
+      responses:
+        '200':
+          description: Dashboard del alumno autenticado
+          content:
+            application/json:
+              example:
+                student:
+                  id: "usr_0ZLUQ"
+                  displayName: "Lucas Rodríguez"
+                  courseName: "5to B"
+                attendance:
+                  percentage: 95.0
+                  absentDays: 3
+                upcomingWork:
+                  - title: "[EXAMEN] Fracciones"
+                    type: "exam"
+                    dueDate: "2025-04-15T08:00:00Z"
+                    subject: "Matemática"
+                recentGrades:
+                  - subject: "Matemática"
+                    grade: 8.5
+                    maxGrade: 10
+                reminders:
+                  - "Examen de Matemática en 6 días"
+                  - "Tarea de Lengua vence mañana"
+
+  /dashboard/teacher:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard del docente
+      description: Cursos a cargo, alumnos, calificaciones y calendario desde Google Classroom.
+      responses:
+        '200':
+          description: Dashboard del docente autenticado
+          content:
+            application/json:
+              example:
+                teacher:
+                  id: "usr_TEACH1"
+                  displayName: "María Pérez"
+                courses:
+                  - id: "course_5B_2025"
+                    name: "5to B"
+                    studentCount: 28
+                    pendingGrades: 5
+                    upcomingWork:
+                      - title: "[EXAMEN] Fracciones"
+                        dueDate: "2025-04-15T08:00:00Z"
+                unreadMessages: 3
+                calendarToday:
+                  - time: "08:00"
+                    subject: "Matemática 5to B"
+                  - time: "10:00"
+                    subject: "Matemática 6to A"
+
+  /dashboard/director:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard del director
+      description: |
+        Indicadores globales del colegio. Consume cursos y calificaciones de Google Classroom
+        y asistencia del sistema interno.
+      responses:
+        '200':
+          description: Dashboard del director
+          content:
+            application/json:
+              example:
+                school:
+                  totalStudents: 320
+                  totalTeachers: 24
+                  totalCourses: 12
+                attendance:
+                  todayPercentage: 93.4
+                  weekAverage: 94.1
+                grades:
+                  schoolAverage: 7.6
+                  bySubject:
+                    - subject: "Matemática"
+                      average: 7.2
+                    - subject: "Lengua"
+                      average: 8.1
+                    - subject: "Ciencias Naturales"
+                      average: 7.9
+                pendingAdmissions: 8
+                recentActivity:
+                  - type: "enrollment"
+                    description: "Lucas Rodríguez dado de alta en 5to B"
+                    at: "2025-04-09T08:00:00Z"
+                  - type: "announcement"
+                    description: "María Pérez publicó notas de examen en 5to B"
+                    at: "2025-04-08T18:00:00Z"
+
+# ─────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: "usr_0ZLUQ"
+
+  responses:
+    Unauthorized:
+      description: Token inválido o ausente
+      content:
+        application/json:
+          example:
+            error: "UNAUTHORIZED"
+            message: "Token JWT inválido o expirado"
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          example:
+            error: "NOT_FOUND"
+            message: "El recurso solicitado no existe"
+    ValidationError:
+      description: Error de validación
+      content:
+        application/json:
+          example:
+            error: "VALIDATION_ERROR"
+            fields:
+              - field: "parentEmail"
+                message: "Formato de email inválido"
+              - field: "birthDate"
+                message: "La fecha no puede ser futura"
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            role:
+              type: string
+              enum: [superadmin, director, docente, alumno, padre]
+            displayName:
+              type: string
+
+    ProspectCreate:
+      type: object
+      required: [studentName, birthDate, gradeApplying, parentEmail]
+      properties:
+        studentName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        gradeApplying:
+          type: string
+        parentName:
+          type: string
+        parentEmail:
+          type: string
+          format: email
+        parentPhone:
+          type: string
+        notes:
+          type: string
+
+security:
+  - bearerAuth: []
