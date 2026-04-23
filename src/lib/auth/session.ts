@@ -13,10 +13,16 @@ export async function getServerSession(): Promise<{
   const raw = jar.get(USER_COOKIE)?.value;
   let user: User | null = null;
   if (raw) {
+    // `cookies().get().value` ya viene url-decodeado. Mantenemos un fallback
+    // por si la cookie fue seteada con encoding manual (versiones previas).
     try {
-      user = JSON.parse(decodeURIComponent(raw)) as User;
+      user = JSON.parse(raw) as User;
     } catch {
-      user = null;
+      try {
+        user = JSON.parse(decodeURIComponent(raw)) as User;
+      } catch {
+        user = null;
+      }
     }
   }
   return { user, accessToken, refreshToken };

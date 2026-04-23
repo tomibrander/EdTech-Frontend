@@ -31,8 +31,10 @@ export function setAuthCookies(
     });
   }
   if (user) {
-    // público, accesible desde el middleware para leer el rol (no sensible)
-    res.cookies.set(USER_COOKIE, encodeURIComponent(JSON.stringify(user)), {
+    // público, accesible desde el middleware para leer el rol (no sensible).
+    // NextResponse.cookies.set() ya url-encodea el value, por eso NO hacemos
+    // encodeURIComponent acá (si no, queda double-encoded y el cliente no lo puede parsear).
+    res.cookies.set(USER_COOKIE, JSON.stringify(user), {
       httpOnly: false,
       secure: isProd,
       sameSite: "lax",
