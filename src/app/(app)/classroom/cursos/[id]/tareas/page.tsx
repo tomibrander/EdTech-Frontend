@@ -52,7 +52,7 @@ export default function CourseWorkPage({
       </Button>
       <PageHeader
         title="Tareas y exámenes"
-        description={`Curso ${id}`}
+        description={`Materia ${id}`}
         actions={<NewWorkDialog courseId={id} />}
       />
 
@@ -82,13 +82,19 @@ export default function CourseWorkPage({
                   {w.description && (
                     <p className="mt-1 text-sm text-muted-foreground">{w.description}</p>
                   )}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Vence {formatDate(w.dueDate)} · {fromNow(w.dueDate)}
-                  </p>
+                  {w.dueDate ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Vence {formatDate(w.dueDate)} · {fromNow(w.dueDate)}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Sin fecha de entrega
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Puntos</p>
-                  <p className="text-lg font-semibold">{w.maxPoints}</p>
+                  <p className="text-lg font-semibold">{w.maxPoints ?? "—"}</p>
                 </div>
               </CardContent>
             </Card>

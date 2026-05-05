@@ -3,19 +3,40 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import type {
   AIAssistantResponse,
+  ClassroomCourse,
   CourseWork,
   Grade,
-  Paginated,
 } from "@/types";
 
-export function useCourseWork(courseId: string, type: "all" | "task" | "exam" = "all") {
+const EXAM_PREFIX = "[EXAMEN]";
+
+export function useClassroomCourses(filters?: {
+  teacherId?: string;
+  studentId?: string;
+  courseState?: string;
+}) {
+  return useQuery({
+    queryKey: ["classroom", "courses", filters ?? {}],
+    queryFn: async () =>
+      (
+        await api.get<ClassroomCourse[]>("/classroom/courses", {
+          params: filters,
+        })
+      ).data,
+  });
+}
+
+export function useCourseWork(
+  courseId: string,
+  type: "all" | "task" | "exam" = "all",
+) {
   return useQuery({
     queryKey: ["classroom", courseId, "work", type],
     queryFn: async () =>
       (
-        await api.get<Paginated<CourseWork>>(
+        await api.get<{ courseId: string; data: CourseWork[] }>(
           `/classroom/courses/${courseId}/work`,
-          { params: { type } }
+          { params: { type } },
         )
       ).data,
     enabled: !!courseId,
@@ -28,14 +49,24 @@ export function useCreateCourseWork(courseId: string) {
     mutationFn: async (values: {
       title: string;
       description?: string;
-      dueDate: string;
+      dueDate?: string;
       dueTime?: string;
-      maxPoints: number;
+      maxPoints?: number;
       type: "task" | "exam";
-    }) =>
-      (
-        await api.post(`/classroom/courses/${courseId}/work`, values)
-      ).data,
+    }) => {
+      const titleHasPrefix = values.title.trim().toUpperCase().startsWith(EXAM_PREFIX);
+      const title =
+        values.type === "exam" && !titleHasPrefix
+          ? `${EXAM_PREFIX} ${values.title.trim()}`
+          : values.title;
+      const { type: _type, ...rest } = values;
+      void _type;
+      const payload = { ...rest, title };
+      return (await api.post<CourseWork>(
+        `/classroom/courses/${courseId}/work`,
+        payload,
+      )).data;
+    },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ["classroom", courseId, "work"] }),
   });
@@ -47,7 +78,7 @@ export function useCourseGrades(courseId: string, workId?: string) {
     queryFn: async () => {
       const { data } = await api.get<{ courseId: string; data: Grade[] }>(
         `/classroom/courses/${courseId}/grades`,
-        { params: workId ? { workId } : {} }
+        { params: workId ? { workId } : {} },
       );
       return data;
     },

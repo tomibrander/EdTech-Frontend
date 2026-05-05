@@ -1,37 +1,54 @@
 "use client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
+import type { WorkspaceGroup, WorkspaceUser } from "@/types";
 
-export function useCreateWorkspaceUser() {
-  return useMutation({
-    mutationFn: async (values: {
-      firstName: string;
-      lastName: string;
-      primaryEmail: string;
-      password: string;
-      orgUnitPath: string;
-    }) => (await api.post("/workspace/users", values)).data,
-  });
-}
-
-export function useMoveUserOU() {
-  return useMutation({
-    mutationFn: async (values: {
-      userKey: string;
-      newOrgUnitPath: string;
-    }) =>
+export function useWorkspaceUsers(orgUnitPath?: string) {
+  return useQuery({
+    queryKey: ["workspace", "users", orgUnitPath ?? "all"],
+    queryFn: async () =>
       (
-        await api.patch(`/workspace/users/${values.userKey}/ou`, {
-          newOrgUnitPath: values.newOrgUnitPath,
+        await api.get<WorkspaceUser[]>("/workspace/users", {
+          params: orgUnitPath ? { orgUnitPath } : {},
         })
       ).data,
   });
 }
 
-export function useSuspendUser() {
+export function useCreateWorkspaceUser() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (userKey: string) =>
-      (await api.post(`/workspace/users/${userKey}/suspend`)).data,
+    mutationFn: async (values: {
+      firstName?: string;
+      lastName?: string;
+      institutionalEmail: string;
+      orgUnitPath: string;
+    }) => (await api.post<WorkspaceUser>("/workspace/users", values)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", "users"] }),
+  });
+}
+
+export function useMoveUserOU() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: { googleId: string; orgUnitPath: string }) =>
+      (
+        await api.patch<WorkspaceUser>(
+          `/workspace/users/${values.googleId}/ou`,
+          { orgUnitPath: values.orgUnitPath },
+        )
+      ).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", "users"] }),
+  });
+}
+
+export function useSuspendUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (googleId: string) => {
+      await api.delete(`/workspace/users/${googleId}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", "users"] }),
   });
 }
 
@@ -41,6 +58,7 @@ export function useCreateGroup() {
       email: string;
       name: string;
       description?: string;
-    }) => (await api.post("/workspace/groups", values)).data,
+      members?: string[];
+    }) => (await api.post<WorkspaceGroup>("/workspace/groups", values)).data,
   });
 }

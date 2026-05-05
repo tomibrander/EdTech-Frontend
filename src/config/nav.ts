@@ -66,7 +66,7 @@ export function getNavSections(): NavSection[] {
           roles: ["superadmin", "director", "docente"],
         },
         {
-          label: "Tareas y exámenes",
+          label: "Materias",
           href: "/classroom",
           icon: ClipboardList,
           roles: ["superadmin", "director", "docente", "alumno"],

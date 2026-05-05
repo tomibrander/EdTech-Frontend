@@ -90,7 +90,7 @@ export default function GradesPage({
       </Button>
       <PageHeader
         title="Calificaciones"
-        description={`Curso ${id}`}
+        description={`Materia ${id}`}
         actions={
           <div className="flex items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
@@ -165,7 +165,13 @@ export default function GradesPage({
             <TableBody>
               {grades.data.map((g) => (
                 <TableRow key={g.studentId}>
-                  <TableCell className="font-medium">{g.studentName}</TableCell>
+                  <TableCell className="font-medium">
+                    {g.studentName ?? (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {g.studentId}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {g.state ?? "—"}
                   </TableCell>

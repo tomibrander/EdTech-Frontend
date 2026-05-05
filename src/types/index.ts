@@ -145,25 +145,58 @@ export interface Announcement {
 
 export interface CourseWork {
   id: string;
+  courseId?: string;
   title: string;
   type: "task" | "exam";
-  dueDate: string;
-  maxPoints: number;
+  dueDate?: string;
+  maxPoints?: number;
   state?: string;
   description?: string;
   subject?: string;
   status?: string;
+  createdAt?: string;
 }
 
 export interface Grade {
   studentId: string;
-  studentName: string;
+  studentName?: string;
   workId: string;
-  workTitle: string;
-  grade: number;
-  maxPoints: number;
+  workTitle?: string;
+  grade?: number;
+  maxPoints?: number;
   state?: string;
   gradedAt?: string;
+}
+
+export interface ClassroomCourse {
+  id: string;
+  name: string;
+  section?: string;
+  description?: string;
+  ownerId?: string;
+  enrollmentCode?: string;
+  state?: string;
+  alternateLink?: string;
+  creationTime?: string;
+}
+
+export interface WorkspaceUser {
+  googleAccountId: string;
+  institutionalEmail: string;
+  orgUnitPath: string;
+  suspended: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WorkspaceGroup {
+  googleGroupId: string;
+  email: string;
+  name?: string;
+  description?: string;
+  memberCount: number;
+  members: string[];
+  createdAt?: string;
 }
 
 export interface StudentDashboard {
