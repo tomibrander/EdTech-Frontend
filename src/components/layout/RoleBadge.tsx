@@ -8,6 +8,7 @@ export function RoleBadge({ role }: { role: Role }) {
     docente: "success",
     alumno: "secondary",
     padre: "warning",
+    pendiente: "secondary",
   };
   return <Badge variant={variantByRole[role]}>{ROLE_LABELS[role]}</Badge>;
 }

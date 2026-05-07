@@ -35,12 +35,27 @@ function resolveRefresh(ok: boolean) {
   refreshWaiters = [];
 }
 
+function redirectToAccessDenied(reason?: string) {
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  if (path.startsWith("/acceso-denegado") || path.startsWith("/login")) return;
+  const params = new URLSearchParams({ from: path });
+  if (reason) params.set("reason", reason);
+  window.location.href = `/acceso-denegado?${params.toString()}`;
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as
       | (InternalAxiosRequestConfig & { _retry?: boolean })
       | undefined;
+
+    if (error.response?.status === 403) {
+      const data = error.response.data as { message?: string } | undefined;
+      redirectToAccessDenied(data?.message);
+      return Promise.reject(error);
+    }
 
     if (error.response?.status !== 401 || !original || original._retry) {
       return Promise.reject(error);

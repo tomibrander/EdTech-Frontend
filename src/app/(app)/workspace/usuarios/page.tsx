@@ -4,7 +4,11 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
   Ban,
+  Check,
+  Copy,
+  ExternalLink,
   FolderTree,
+  KeyRound,
   Loader2,
   RefreshCw,
   UserPlus,
@@ -25,6 +29,22 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ROLE_LABELS, type Role } from "@/config/roles";
+import {
   Table,
   TableBody,
   TableCell,
@@ -37,21 +57,34 @@ import { RoleGate } from "@/components/auth/RoleGate";
 import {
   useCreateWorkspaceUser,
   useMoveUserOU,
+  useResetWorkspacePassword,
   useSuspendUser,
   useWorkspaceUsers,
 } from "@/features/workspace/hooks";
 import { formatDate } from "@/lib/utils";
 
+interface CredentialsModalState {
+  email: string;
+  password: string;
+  isReset?: boolean;
+  assignedRole?: Role;
+}
+
+const CREATABLE_ROLES: Role[] = [
+  "pendiente",
+  "docente",
+  "alumno",
+  "padre",
+  "director",
+];
+
 export default function WorkspaceUsersPage() {
+  const [credentials, setCredentials] = React.useState<CredentialsModalState | null>(
+    null,
+  );
+
   return (
-    <RoleGate
-      roles={["superadmin"]}
-      fallback={
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          Solo el super-admin puede acceder a esta sección.
-        </p>
-      }
-    >
+    <RoleGate roles={["superadmin"]}>
       <div className="space-y-6">
         <PageHeader
           title="Google Workspace · Usuarios"
@@ -59,33 +92,53 @@ export default function WorkspaceUsersPage() {
         />
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <CreateUserCard />
+          <CreateUserCard onCredentials={setCredentials} />
           <MoveOUCard />
           <SuspendUserCard />
         </div>
 
-        <UsersTable />
+        <UsersTable onCredentials={setCredentials} />
+
+        <CredentialsDialog
+          credentials={credentials}
+          onClose={() => setCredentials(null)}
+        />
       </div>
     </RoleGate>
   );
 }
 
-function CreateUserCard() {
+function CreateUserCard({
+  onCredentials,
+}: {
+  onCredentials: (c: CredentialsModalState) => void;
+}) {
   const create = useCreateWorkspaceUser();
-  const { register, handleSubmit, reset } = useForm<{
+  const { register, handleSubmit, reset, watch, setValue } = useForm<{
     firstName: string;
     lastName: string;
     institutionalEmail: string;
     orgUnitPath: string;
-  }>({ defaultValues: { orgUnitPath: "/" } });
+    role: Role;
+  }>({ defaultValues: { orgUnitPath: "/", role: "pendiente" } });
+
+  const role = watch("role");
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const created = await create.mutateAsync(values);
-      toast.success(
-        `Cuenta creada: ${created.institutionalEmail}. Contraseña temporal generada por Workspace.`,
-      );
-      reset();
+      const result = await create.mutateAsync(values);
+      reset({ orgUnitPath: "/", role: "pendiente" });
+      if (result.workspaceUser.temporaryPassword) {
+        onCredentials({
+          email: result.workspaceUser.institutionalEmail,
+          password: result.workspaceUser.temporaryPassword,
+          assignedRole: result.appUser.role as Role,
+        });
+      } else {
+        toast.success(
+          `Cuenta creada: ${result.workspaceUser.institutionalEmail}`,
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     }
@@ -98,8 +151,8 @@ function CreateUserCard() {
           <UserPlus className="h-4 w-4 text-primary" /> Crear cuenta
         </CardTitle>
         <CardDescription>
-          La contraseña inicial la genera Workspace y se obliga a cambiarla en
-          el primer login.
+          Crea la cuenta en Google Workspace y la registra en la app con el rol
+          elegido. La contraseña inicial es de un solo uso.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -125,8 +178,32 @@ function CreateUserCard() {
               {...register("orgUnitPath", { required: true })}
             />
           </Field>
+          <Field label="Rol en la app">
+            <Select
+              value={role}
+              onValueChange={(v) => setValue("role", v as Role)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CREATABLE_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {role === "pendiente"
+                ? "Se va a crear sin permisos. Lo aprobás más tarde."
+                : "Se le asigna el rol al instante."}
+            </p>
+          </Field>
           <Button type="submit" disabled={create.isPending} className="w-full">
-            {create.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {create.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             Crear
           </Button>
         </form>
@@ -226,10 +303,38 @@ function SuspendUserCard() {
   );
 }
 
-function UsersTable() {
+function UsersTable({
+  onCredentials,
+}: {
+  onCredentials: (c: CredentialsModalState) => void;
+}) {
   const [filter, setFilter] = React.useState("");
   const { data, isLoading, isError, error, refetch, isFetching } =
     useWorkspaceUsers();
+  const resetPwd = useResetWorkspacePassword();
+  const [resettingId, setResettingId] = React.useState<string | null>(null);
+
+  const handleResetPassword = async (userKey: string, email: string) => {
+    if (
+      !confirm(
+        `¿Resetear la contraseña de ${email}? Se generará una nueva password temporal y la actual dejará de funcionar.`,
+      )
+    )
+      return;
+    setResettingId(userKey);
+    try {
+      const result = await resetPwd.mutateAsync(userKey);
+      onCredentials({
+        email: result.institutionalEmail,
+        password: result.temporaryPassword,
+        isReset: true,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    } finally {
+      setResettingId(null);
+    }
+  };
 
   const filtered = React.useMemo(() => {
     if (!data) return [];
@@ -299,6 +404,7 @@ function UsersTable() {
                 <TableHead>OU</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Creado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -320,6 +426,26 @@ function UsersTable() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(u.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={resettingId === u.googleAccountId}
+                      onClick={() =>
+                        handleResetPassword(
+                          u.googleAccountId,
+                          u.institutionalEmail,
+                        )
+                      }
+                    >
+                      {resettingId === u.googleAccountId ? (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <KeyRound className="mr-2 h-3.5 w-3.5" />
+                      )}
+                      Resetear contraseña
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -343,5 +469,136 @@ function Field({
       <Label className="text-xs">{label}</Label>
       {children}
     </div>
+  );
+}
+
+function CredentialsDialog({
+  credentials,
+  onClose,
+}: {
+  credentials: CredentialsModalState | null;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = React.useState<"email" | "password" | null>(null);
+
+  React.useEffect(() => {
+    if (!credentials) setCopied(null);
+  }, [credentials]);
+
+  const copy = async (value: string, key: "email" | "password") => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  };
+
+  return (
+    <Dialog open={!!credentials} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {credentials?.isReset
+              ? "Contraseña reseteada"
+              : "Cuenta creada en Google Workspace"}
+          </DialogTitle>
+          <DialogDescription>
+            Esta es la <strong>única vez</strong> que vas a ver esta contraseña.
+            Copiala y pasásela al usuario. Tiene que cambiarla obligatoriamente
+            en el primer login.
+            {credentials?.assignedRole && !credentials.isReset && (
+              <span className="mt-2 block">
+                Rol asignado en la app:{" "}
+                <strong>{ROLE_LABELS[credentials.assignedRole]}</strong>
+                {credentials.assignedRole === "pendiente" && (
+                  <> (queda esperando aprobación).</>
+                )}
+              </span>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        {credentials && (
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email</Label>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={credentials.email} className="font-mono text-sm" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copy(credentials.email, "email")}
+                  aria-label="Copiar email"
+                >
+                  {copied === "email" ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Contraseña temporal</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={credentials.password}
+                  className="font-mono text-sm tracking-wider"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copy(credentials.password, "password")}
+                  aria-label="Copiar contraseña"
+                >
+                  {copied === "password" ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">Próximos pasos:</p>
+              <ol className="mt-1 list-decimal space-y-0.5 pl-4">
+                <li>
+                  Pasale al usuario el email y la contraseña por un canal seguro.
+                </li>
+                <li>
+                  Que entre a{" "}
+                  <a
+                    href="https://accounts.google.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                  >
+                    accounts.google.com
+                    <ExternalLink className="h-3 w-3" />
+                  </a>{" "}
+                  con esos datos.
+                </li>
+                <li>Google le va a pedir que defina una nueva contraseña.</li>
+                <li>
+                  Después, en el login de la app, va a poder usar el botón
+                  &quot;Continuar con Google&quot;.
+                </li>
+              </ol>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button onClick={onClose}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Megaphone,
   Sparkles,
+  UserCog,
   Users,
   UserPlus,
   Briefcase,
@@ -121,6 +122,12 @@ export function getNavSections(): NavSection[] {
     {
       label: "Administración",
       items: [
+        {
+          label: "Aprobar usuarios",
+          href: "/admin/usuarios-pendientes",
+          icon: UserCog,
+          roles: ["superadmin"],
+        },
         {
           label: "Usuarios Workspace",
           href: "/workspace/usuarios",

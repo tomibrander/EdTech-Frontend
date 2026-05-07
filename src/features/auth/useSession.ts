@@ -33,7 +33,12 @@ function readUserFromCookie(): User | null {
 }
 
 export function useSession() {
-  const [user, setUser] = React.useState<User | null>(null);
+  // Leer la cookie en el estado inicial (sync), no solo en useEffect.
+  // Si no, el primer render tiene user=null y RoleGate cree que el usuario
+  // no tiene rol y redirige a /acceso-denegado antes de hidratar la sesión.
+  const [user, setUser] = React.useState<User | null>(() =>
+    typeof document !== "undefined" ? readUserFromCookie() : null,
+  );
   React.useEffect(() => setUser(readUserFromCookie()), []);
   const role: Role | undefined = user?.role;
   return { user, role, isAuthenticated: !!user };

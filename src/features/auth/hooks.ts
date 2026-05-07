@@ -21,6 +21,25 @@ export function useLogin() {
   });
 }
 
+export function useGoogleLogin() {
+  return useMutation({
+    mutationFn: async (idToken: string) => {
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        throw new Error(data.message ?? "No pudimos iniciar sesión con Google");
+      }
+      return res.json() as Promise<{ user: User }>;
+    },
+  });
+}
+
 export function useLogout() {
   return useMutation({
     mutationFn: async () => {

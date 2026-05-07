@@ -187,6 +187,13 @@ export interface WorkspaceUser {
   suspended: boolean;
   createdAt?: string;
   updatedAt?: string;
+  /** Solo viene en la respuesta de createUser. */
+  temporaryPassword?: string;
+}
+
+export interface WorkspaceUserResetPassword {
+  institutionalEmail: string;
+  temporaryPassword: string;
 }
 
 export interface WorkspaceGroup {

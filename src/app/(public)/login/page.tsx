@@ -5,16 +5,31 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2, GraduationCap, BookOpen, MessageSquare } from "lucide-react";
+import {
+  Loader2,
+  GraduationCap,
+  BookOpen,
+  MessageSquare,
+  Heart,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { tenantConfig } from "@/config/tenant.config";
 import { DASHBOARD_PATH, type Role } from "@/config/roles";
-import { useLogin } from "@/features/auth/hooks";
+import { useGoogleLogin, useLogin } from "@/features/auth/hooks";
 import { loginSchema, type LoginValues } from "@/features/auth/schemas";
+import { GoogleSignInButton } from "@/features/auth/GoogleSignInButton";
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 export default function LoginPage() {
   return (
@@ -29,6 +44,7 @@ function LoginContent() {
   const params = useSearchParams();
   const redirectTo = params.get("from");
   const login = useLogin();
+  const googleLogin = useGoogleLogin();
 
   const {
     register,
@@ -36,16 +52,31 @@ function LoginContent() {
     formState: { errors },
   } = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
 
-  const onSubmit = handleSubmit(async (values) => {
+  const handleSuccess = (user: { displayName: string; role: string }) => {
+    toast.success(`Bienvenido, ${user.displayName}`);
+    router.replace(redirectTo ?? DASHBOARD_PATH[user.role as Role] ?? "/dashboard");
+    router.refresh();
+  };
+
+  const onSubmitPassword = handleSubmit(async (values) => {
     try {
       const res = await login.mutateAsync(values);
-      toast.success(`Bienvenido, ${res.user.displayName}`);
-      router.replace(redirectTo ?? DASHBOARD_PATH[res.user.role as Role]);
-      router.refresh();
+      handleSuccess(res.user);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Credenciales inválidas");
     }
   });
+
+  const handleGoogleCredential = async (idToken: string) => {
+    try {
+      const res = await googleLogin.mutateAsync(idToken);
+      handleSuccess(res.user);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No pudimos iniciar sesión con Google",
+      );
+    }
+  };
 
   return (
     <section className="container grid min-h-[calc(100vh-4rem)] items-center gap-10 py-10 lg:grid-cols-2">
@@ -74,59 +105,118 @@ function LoginContent() {
         </ul>
       </div>
 
-      <Card className="mx-auto w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">{tenantConfig.textos.loginTitle}</CardTitle>
-          <CardDescription>{tenantConfig.textos.loginSubtitle}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email institucional</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder={`nombre@${tenantConfig.domain}`}
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Contraseña</Label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-primary hover:underline"
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
+      <div className="mx-auto w-full max-w-md space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl">
+              {tenantConfig.textos.loginTitle}
+            </CardTitle>
+            <CardDescription>
+              Ingresá con tu cuenta institucional de Google.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {GOOGLE_CLIENT_ID ? (
+              <div className="flex w-full justify-center">
+                <GoogleSignInButton
+                  clientId={GOOGLE_CLIENT_ID}
+                  onCredential={handleGoogleCredential}
+                  disabled={googleLogin.isPending}
+                  onError={(m) => toast.error(m)}
+                />
               </div>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                {...register("password")}
-              />
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={login.isPending}>
-              {login.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Ingresar
-            </Button>
-          </form>
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            ¿No tenés cuenta?{" "}
-            <Link href="/admision/prospecto" className="text-primary hover:underline">
-              Solicitar admisión
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+            ) : (
+              <p className="rounded-md border border-dashed border-warning/40 bg-warning/5 p-3 text-xs text-muted-foreground">
+                Falta configurar <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> en
+                <code> .env.local</code> para habilitar el inicio de sesión con
+                Google.
+              </p>
+            )}
+            {googleLogin.isPending && (
+              <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Verificando con Google…
+              </p>
+            )}
+            <p className="text-center text-xs text-muted-foreground">
+              Solo cuentas del dominio{" "}
+              <span className="font-medium">@{tenantConfig.domain}</span>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-dashed">
+          <CardHeader className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Heart className="h-4 w-4 text-primary" />
+              ¿Sos padre o madre? Ingresá acá
+            </CardTitle>
+            <CardDescription>
+              Si no tenés cuenta institucional, usá el email y contraseña que te
+              dio el colegio.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmitPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="tu@email.com"
+                  {...register("email")}
+                />
+                {errors.email && (
+                  <p className="text-xs text-destructive">
+                    {errors.email.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  {...register("password")}
+                />
+                {errors.password && (
+                  <p className="text-xs text-destructive">
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={login.isPending}
+              >
+                {login.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Ingresar
+              </Button>
+            </form>
+            <p className="mt-6 text-center text-xs text-muted-foreground">
+              ¿No tenés cuenta?{" "}
+              <Link
+                href="/admision/prospecto"
+                className="text-primary hover:underline"
+              >
+                Solicitar admisión
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </section>
   );
 }
