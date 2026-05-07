@@ -19,6 +19,7 @@ export interface AppUser {
 export function useAppUsers(params?: {
   role?: Role;
   includeInactive?: boolean;
+  search?: string;
 }) {
   return useQuery({
     queryKey: ["users", params ?? {}],
@@ -26,6 +27,7 @@ export function useAppUsers(params?: {
       const search: Record<string, string> = {};
       if (params?.role) search.role = params.role;
       if (params?.includeInactive) search.includeInactive = "true";
+      if (params?.search) search.search = params.search;
       const { data } = await api.get<AppUser[]>("/users", { params: search });
       return data;
     },
@@ -48,5 +50,36 @@ export function useAssignRole() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["users"] });
     },
+  });
+}
+
+export function useReconcileStudents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      (
+        await api.post<{
+          processedUsers: number;
+          createdStudents: number;
+          updatedStudents: number;
+        }>("/users/reconcile/students")
+      ).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+    },
+  });
+}
+
+export function useTeacherSuggestions(search: string) {
+  return useQuery({
+    queryKey: ["users", "teachers", search],
+    queryFn: async () => {
+      const { data } = await api.get<AppUser[]>("/users", {
+        params: { role: "docente", search },
+      });
+      return data.slice(0, 10);
+    },
+    enabled: search.trim().length >= 2,
   });
 }

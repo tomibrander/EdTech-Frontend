@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { filterNavByRole, getNavSections } from "@/config/nav";
 import { useSession } from "@/features/auth/useSession";
@@ -15,7 +16,15 @@ interface Props {
 export function Sidebar({ className, onNavigate }: Props) {
   const pathname = usePathname();
   const { role } = useSession();
-  const sections = role ? filterNavByRole(getNavSections(), role) : [];
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Avoid hydration mismatch when role is restored client-side.
+  const sections =
+    mounted && role ? filterNavByRole(getNavSections(), role) : [];
 
   return (
     <aside

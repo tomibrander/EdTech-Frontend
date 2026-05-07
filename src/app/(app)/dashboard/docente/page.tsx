@@ -1,4 +1,5 @@
 "use client";
+import * as React from "react";
 import Link from "next/link";
 import { BookOpen, Clock, MessageSquare, Users } from "lucide-react";
 
@@ -16,6 +17,12 @@ import { fromNow } from "@/lib/utils";
 export default function TeacherDashboardPage() {
   const { user } = useSession();
   const { data, isLoading } = useTeacherDashboard();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+  const displayName = mounted ? user?.displayName : undefined;
 
   const totalStudents = data?.courses.reduce((acc, c) => acc + c.studentCount, 0) ?? 0;
   const totalPending = data?.courses.reduce((acc, c) => acc + c.pendingGrades, 0) ?? 0;
@@ -23,7 +30,7 @@ export default function TeacherDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Hola, ${user?.displayName ?? "docente"}`}
+        title={`Hola, ${displayName ?? "docente"}`}
         description="Tu agenda y cursos a cargo"
       />
 

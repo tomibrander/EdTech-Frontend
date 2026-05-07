@@ -19,10 +19,16 @@ export function RoleGate({ roles, fallback, children }: RoleGateProps) {
   const { role } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-
-  const allowed = !!role && roles.includes(role);
+  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const allowed = mounted && !!role && roles.includes(role);
+
+  React.useEffect(() => {
+    if (!mounted) return;
     if (allowed) return;
     if (fallback !== undefined) return;
     if (!pathname) return;
@@ -32,8 +38,10 @@ export function RoleGate({ roles, fallback, children }: RoleGateProps) {
       reason: "Tu rol no tiene permiso para esta sección",
     });
     router.replace(`/acceso-denegado?${params.toString()}`);
-  }, [allowed, fallback, pathname, router]);
+  }, [allowed, fallback, mounted, pathname, router]);
 
+  // Keep SSR and first client render identical to avoid hydration mismatch.
+  if (!mounted) return null;
   if (allowed) return <>{children}</>;
   if (fallback !== undefined) return <>{fallback}</>;
   return null;

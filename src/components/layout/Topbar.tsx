@@ -34,6 +34,14 @@ export function Topbar() {
   const router = useRouter();
   const logout = useLogout();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Keep SSR and first client render deterministic to avoid hydration mismatches.
+  const safeUser = mounted ? user : null;
 
   async function onLogout() {
     await logout.mutateAsync();
@@ -71,25 +79,25 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-10 gap-2 px-2">
               <Avatar className="h-8 w-8">
-                <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
+                <AvatarFallback>{getInitials(safeUser?.displayName)}</AvatarFallback>
               </Avatar>
               <div className="hidden text-left md:block">
                 <p className="text-sm font-medium leading-none">
-                  {user?.displayName ?? "—"}
+                  {safeUser?.displayName ?? "—"}
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {user?.email}
+                  {safeUser?.email}
                 </p>
               </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="space-y-1">
-              <p className="text-sm font-semibold">{user?.displayName}</p>
-              <p className="text-xs font-normal text-muted-foreground">{user?.email}</p>
-              {user?.role && (
+              <p className="text-sm font-semibold">{safeUser?.displayName}</p>
+              <p className="text-xs font-normal text-muted-foreground">{safeUser?.email}</p>
+              {safeUser?.role && (
                 <div className="pt-1">
-                  <RoleBadge role={user.role} />
+                  <RoleBadge role={safeUser.role} />
                 </div>
               )}
             </DropdownMenuLabel>

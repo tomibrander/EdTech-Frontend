@@ -36,6 +36,7 @@ import {
   useAppUsers,
   useAssignRole,
   usePendingUsers,
+  useReconcileStudents,
   type AppUser,
 } from "@/features/users/hooks";
 import { ROLE_LABELS, type Role } from "@/config/roles";
@@ -202,6 +203,7 @@ function AllUsersTable() {
   const [filter, setFilter] = React.useState("");
   const { data, isLoading } = useAppUsers();
   const assign = useAssignRole();
+  const reconcile = useReconcileStudents();
   const [editingId, setEditingId] = React.useState<string | null>(null);
 
   const filtered = React.useMemo(() => {
@@ -228,6 +230,17 @@ function AllUsersTable() {
     }
   };
 
+  const onReconcileStudents = async () => {
+    try {
+      const result = await reconcile.mutateAsync();
+      toast.success(
+        `Reconciliación completa: ${result.createdStudents} creados, ${result.updatedStudents} actualizados (${result.processedUsers} usuarios alumno procesados).`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -240,13 +253,26 @@ function AllUsersTable() {
             Cambiá el rol de cualquier usuario activo. Los pendientes aparecen también arriba.
           </CardDescription>
         </div>
-        <input
-          type="text"
-          placeholder="Filtrar por email o nombre"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm"
-        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onReconcileStudents}
+            disabled={reconcile.isPending}
+          >
+            {reconcile.isPending && (
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            )}
+            Reconciliar alumnos
+          </Button>
+          <input
+            type="text"
+            placeholder="Filtrar por email o nombre"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm"
+          />
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
