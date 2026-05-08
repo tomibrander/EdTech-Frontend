@@ -4,6 +4,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
+import { RouteProgress } from "@/components/layout/RouteProgress";
 
 const PENDIENTE_PATH = "/dashboard/pendiente";
 
@@ -25,6 +26,9 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen">
+      {/* Barra de progreso global — anima en cada cambio de pathname */}
+      <RouteProgress />
+
       {user.role !== "pendiente" && (
         <div className="hidden lg:flex">
           <Sidebar />
