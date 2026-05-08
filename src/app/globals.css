@@ -1,21 +1,46 @@
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400..600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* "Alma" del producto — paper + cream + ink cálido.
+       Los tenants pisan --primary / --ring / --accent;
+       estos warm-neutrals viven acá y los heredan todos. */
+    --paper:        38 50% 93%;
+    --paper-2:      38 45% 88%;
+    --cream:        38 50% 96%;
+
+    --font-serif: "Newsreader", Georgia, "Source Serif 4", serif;
+    --font-sans:  "Plus Jakarta Sans", -apple-system, system-ui, sans-serif;
+  }
+
   * {
     @apply border-border;
   }
+
   html,
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+
   h1,
   h2,
   h3,
-  h4 {
-    @apply tracking-tight;
+  h4,
+  .display {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+  }
+
+  /* Tabular nums para números en cards/tablas. */
+  .num-mono {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -32,5 +57,10 @@
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/50;
+  }
+
+  /* Hover lift — usar en cards clickeables solamente. */
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
   }
 }

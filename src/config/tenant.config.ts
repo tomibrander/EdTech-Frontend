@@ -6,8 +6,10 @@
  *  2. Copiar el logo/favicon a `public/tenants/<id>/`.
  *  3. Setear `NEXT_PUBLIC_TENANT=<id>` en el `.env.local` y rebuild.
  *
- * Los colores están en HSL (sin la función `hsl()`) porque se inyectan como CSS variables
- * y Tailwind los consume vía `hsl(var(--primary))`.
+ * IMPORTANTE: los neutros (background/card/muted/border) del defaultTenant
+ * tienen tono cálido (hue ~38° = paper). Cualquier tenant que solo cambia su
+ * primary hereda esta calidez. Si un tenant quiere look 100% neutro/blanco,
+ * tiene que sobrescribir explícitamente esos campos.
  */
 
 export type HSL = { h: number; s: number; l: number };
@@ -73,27 +75,32 @@ const defaultTenant: TenantConfig = {
   theme: {
     radius: "0.75rem",
     colors: {
-      primary: { h: 221, s: 83, l: 53 },
-      primaryForeground: { h: 0, s: 0, l: 100 },
-      secondary: { h: 210, s: 40, l: 96 },
-      secondaryForeground: { h: 222, s: 47, l: 11 },
-      accent: { h: 142, s: 71, l: 45 },
-      accentForeground: { h: 0, s: 0, l: 100 },
-      background: { h: 0, s: 0, l: 100 },
-      foreground: { h: 222, s: 47, l: 11 },
-      card: { h: 0, s: 0, l: 100 },
-      cardForeground: { h: 222, s: 47, l: 11 },
-      muted: { h: 210, s: 40, l: 96 },
-      mutedForeground: { h: 215, s: 16, l: 47 },
-      border: { h: 214, s: 32, l: 91 },
-      input: { h: 214, s: 32, l: 91 },
-      ring: { h: 221, s: 83, l: 53 },
-      destructive: { h: 0, s: 84, l: 60 },
-      destructiveForeground: { h: 0, s: 0, l: 100 },
-      success: { h: 142, s: 71, l: 45 },
-      successForeground: { h: 0, s: 0, l: 100 },
-      warning: { h: 38, s: 92, l: 50 },
-      warningForeground: { h: 26, s: 83, l: 14 },
+      // Tenant brand — ochre cálido por default
+      primary:              { h: 28, s: 55, l: 45 },
+      primaryForeground:    { h: 38, s: 50, l: 98 },
+      ring:                 { h: 28, s: 55, l: 45 },
+      accent:               { h: 28, s: 55, l: 92 },
+      accentForeground:     { h: 28, s: 60, l: 28 },
+
+      // Producto — paper warm neutrals (hue 38°)
+      background:           { h: 38, s: 50, l: 93 }, // paper
+      foreground:            { h: 30, s: 25, l: 12 }, // ink cálido
+      card:                 { h: 38, s: 50, l: 96 }, // cream
+      cardForeground:       { h: 30, s: 25, l: 12 },
+      muted:                { h: 38, s: 30, l: 88 },
+      mutedForeground:      { h: 35, s: 18, l: 38 },
+      border:               { h: 38, s: 30, l: 82 },
+      input:                { h: 38, s: 35, l: 90 },
+      secondary:            { h: 38, s: 35, l: 90 },
+      secondaryForeground:  { h: 30, s: 25, l: 18 },
+
+      // Estados — armonizan con la paleta cálida
+      destructive:          { h: 8,   s: 60, l: 48 },
+      destructiveForeground:{ h: 38, s: 50, l: 98 },
+      success:              { h: 80,  s: 35, l: 38 },
+      successForeground:    { h: 38, s: 50, l: 98 },
+      warning:              { h: 32,  s: 75, l: 48 },
+      warningForeground:    { h: 30, s: 50, l: 14 },
     },
   },
   features: {
@@ -128,9 +135,11 @@ const sanMartinTenant: TenantConfig = {
     ...defaultTenant.theme,
     colors: {
       ...defaultTenant.theme.colors,
-      primary: { h: 356, s: 75, l: 45 },
-      ring: { h: 356, s: 75, l: 45 },
-      accent: { h: 38, s: 92, l: 50 },
+      // Solo pisan el brand: el resto hereda los warm neutrals
+      primary: { h: 356, s: 60, l: 42 },
+      ring:    { h: 356, s: 60, l: 42 },
+      accent:  { h: 356, s: 50, l: 92 },
+      accentForeground: { h: 356, s: 60, l: 28 },
     },
   },
   textos: {
