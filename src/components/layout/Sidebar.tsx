@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { filterNavByRole, getNavSections } from "@/config/nav";
 import { useSession } from "@/features/auth/useSession";
@@ -15,16 +16,34 @@ interface Props {
 
 export function Sidebar({ className, onNavigate }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const { role } = useSession();
   const [mounted, setMounted] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Avoid hydration mismatch when role is restored client-side.
+  // Cuando la URL ya cambió, soltamos el pending.
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
   const sections =
     mounted && role ? filterNavByRole(getNavSections(), role) : [];
+
+  const handleClick =
+    (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (href === pathname) return;
+      e.preventDefault();
+      setPendingHref(href);
+      startTransition(() => {
+        router.push(href);
+        onNavigate?.();
+      });
+    };
 
   return (
     <aside
@@ -48,19 +67,33 @@ export function Sidebar({ className, onNavigate }: Props) {
                 const active =
                   pathname === item.href ||
                   (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                const loading = pendingHref === item.href && isPending;
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      onClick={onNavigate}
+                      prefetch
+                      onMouseEnter={() => router.prefetch(item.href)}
+                      onClick={handleClick(item.href)}
                       className={cn(
-                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                        "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-all",
                         active
                           ? "bg-primary/10 font-medium text-primary"
-                          : "text-foreground/70 hover:bg-accent/60 hover:text-foreground"
+                          : "text-foreground/70 hover:bg-accent/60 hover:text-foreground",
+                        loading && "scale-[0.98] opacity-80"
                       )}
                     >
-                      <Icon className="h-4 w-4" />
+                      {active && (
+                        <span
+                          aria-hidden
+                          className="absolute -left-1 top-2 bottom-2 w-[3px] rounded-full bg-primary"
+                        />
+                      )}
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Icon className="h-4 w-4" />
+                      )}
                       {item.label}
                     </Link>
                   </li>
