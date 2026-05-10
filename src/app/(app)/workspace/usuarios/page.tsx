@@ -76,6 +76,7 @@ const CREATABLE_ROLES: Role[] = [
   "alumno",
   "padre",
   "director",
+  "superadmin",
 ];
 
 export default function WorkspaceUsersPage() {
