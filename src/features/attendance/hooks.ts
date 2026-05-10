@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import type {
+  AttendanceAuditEntry,
   AttendanceRecord,
   AttendanceSummary,
   AttendanceStatus,
@@ -53,6 +54,32 @@ export function useUpdateAttendanceRecord() {
       note?: string;
     }) => (await api.patch(`/attendance/${id}`, { status, note })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
+  });
+}
+
+interface AttendanceLogFilters {
+  courseId?: string;
+  from?: string;
+  to?: string;
+  userId?: string;
+}
+
+/**
+ * Historial de auditoría de cambios de asistencia.
+ * Endpoint: GET /attendance/logs
+ * Pendiente de implementación en backend (Cassandra / tabla append-only).
+ */
+export function useAttendanceLogs(filters: AttendanceLogFilters) {
+  return useQuery({
+    queryKey: ["attendance", "logs", filters],
+    queryFn: async () => {
+      const { data } = await api.get<Paginated<AttendanceAuditEntry>>(
+        "/attendance/logs",
+        { params: filters }
+      );
+      return data;
+    },
+    enabled: true,
   });
 }
 

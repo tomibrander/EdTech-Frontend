@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   BookOpen,
   Building2,
   CalendarCheck2,
@@ -116,6 +117,17 @@ export function getNavSections(): NavSection[] {
           icon: Briefcase,
           roles: ["superadmin", "director"],
           enabled: f.postulacionesLaborales,
+        },
+      ],
+    },
+    {
+      label: "Análisis",
+      items: [
+        {
+          label: "Reportes",
+          href: "/reportes",
+          icon: BarChart3,
+          roles: ["superadmin", "director"],
         },
       ],
     },

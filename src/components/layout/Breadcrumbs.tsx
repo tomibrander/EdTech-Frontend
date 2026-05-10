@@ -27,6 +27,8 @@ const LABELS: Record<string, string> = {
   tareas: "Tareas",
   calificaciones: "Calificaciones",
   nuevo: "Nuevo",
+  reportes: "Reportes",
+  historial: "Historial de cambios",
 };
 
 export function Breadcrumbs({ className }: { className?: string }) {

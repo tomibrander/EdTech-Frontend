@@ -244,6 +244,32 @@ export interface DirectorDashboard {
   recentActivity: { type: string; description: string; at: string }[];
 }
 
+// ─── Audit log ────────────────────────────────────────────────────────────────
+
+export type AttendanceAuditAction = "attendance.create" | "attendance.update";
+
+/**
+ * Contrato de audit log para cambios de asistencia.
+ * El backend lo persiste en Cassandra (o tabla append-only).
+ * Partition key sugerida: (courseId, date) · Clustering key: timestamp DESC
+ */
+export interface AttendanceAuditEntry {
+  id: string;
+  timestamp: string;                                        // ISO 8601, generado en backend
+  userId: string;
+  userDisplayName: string;
+  userRole: Role;
+  action: AttendanceAuditAction;
+  recordId: string;                                         // AttendanceRecord.id
+  courseId: string;
+  courseName: string;
+  date: string;                                             // fecha de asistencia (YYYY-MM-DD)
+  studentId: string;
+  studentName: string;
+  before: { status: AttendanceStatus; note?: string } | null; // null en creación
+  after: { status: AttendanceStatus; note?: string };
+}
+
 export interface AIAssistantResponse {
   answer: string;
   sources: {
