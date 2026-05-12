@@ -64,6 +64,14 @@ export interface JobApplication {
   createdAt: string;
 }
 
+export interface CourseHistoryEntry {
+  courseCode: string;
+  year: number;
+  promoted: boolean;
+  notes?: string;
+  movedAt: string;
+}
+
 export interface Student {
   id: string;
   displayName: string;
@@ -74,6 +82,7 @@ export interface Student {
   courseName: string;
   enrolledAt?: string;
   parents?: { name: string; email: string; phone?: string }[];
+  courseHistory?: CourseHistoryEntry[];
 }
 
 export interface Course {

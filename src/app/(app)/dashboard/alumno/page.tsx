@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from "react";
 import { CalendarCheck2, ClipboardList, GraduationCap, Sparkles, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
@@ -11,21 +12,62 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/data/EmptyState";
 import { useStudentDashboard } from "@/features/dashboard/hooks";
 import { useSession } from "@/features/auth/useSession";
-import { formatDate, fromNow } from "@/lib/utils";
+import { fromNow } from "@/lib/utils";
+import { GradesEvolutionCard } from "@/components/data/GradesEvolutionCard";
+import { tenantConfig } from "@/config/tenant.config";
+import type { CourseWork } from "@/types";
+
+function isSameDay(iso: string, ref: Date): boolean {
+  const d = new Date(iso);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime() === ref.getTime();
+}
+
+function buildGreetingSubtitle(work: CourseWork[], phrases: string[]): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const examToday = work.find(
+    (w) => w.type === "exam" && !!w.dueDate && isSameDay(w.dueDate, today)
+  );
+  if (examToday)
+    return `¡Hoy tenés examen de ${examToday.subject ?? examToday.title}!`;
+
+  const examTomorrow = work.find(
+    (w) => w.type === "exam" && !!w.dueDate && isSameDay(w.dueDate, tomorrow)
+  );
+  if (examTomorrow)
+    return `Mañana tenés examen de ${examTomorrow.subject ?? examTomorrow.title}. ¡Preparate!`;
+
+  const taskToday = work.find(
+    (w) => w.type === "task" && !!w.dueDate && isSameDay(w.dueDate, today)
+  );
+  if (taskToday)
+    return `Recordá: hoy vence "${taskToday.title}".`;
+
+  return phrases[Math.floor(Math.random() * phrases.length)] ?? "¡Buen día!";
+}
 
 export default function StudentDashboardPage() {
   const { user } = useSession();
   const { data, isLoading } = useStudentDashboard();
 
+  const greetingSubtitle = useMemo(() => {
+    if (!data) return undefined;
+    return buildGreetingSubtitle(
+      data.upcomingWork,
+      tenantConfig.textos.motivationalPhrases
+    );
+  }, [data]);
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Hola ${user?.displayName?.split(" ")[0] ?? ""}`}
-        description={
-          data?.student.courseName
-            ? `Curso actual · ${data.student.courseName}`
-            : "Tu panel personal"
-        }
+        eyebrow={data?.student.courseName}
+        title={`Hola, ${user?.displayName?.split(" ")[0] ?? ""}`}
+        description={greetingSubtitle}
         actions={
           <Button asChild variant="outline">
             <Link href="/classroom/asistente">
@@ -106,41 +148,10 @@ export default function StudentDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Últimas calificaciones</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {isLoading ? (
-              <>
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </>
-            ) : data && data.recentGrades.length > 0 ? (
-              data.recentGrades.map((g, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{g.subject}</p>
-                    {g.assignmentTitle && (
-                      <p className="text-xs text-muted-foreground">{g.assignmentTitle}</p>
-                    )}
-                    {g.gradedAt && (
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatDate(g.gradedAt)}
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-lg font-semibold">
-                    {g.grade}
-                    <span className="text-sm text-muted-foreground"> / {g.maxGrade}</span>
-                  </p>
-                </div>
-              ))
-            ) : (
-              <EmptyState title="Sin notas recientes" />
-            )}
-          </CardContent>
-        </Card>
+        <GradesEvolutionCard
+          grades={data?.recentGrades ?? []}
+          isLoading={isLoading}
+        />
       </div>
 
       {data?.reminders && data.reminders.length > 0 && (

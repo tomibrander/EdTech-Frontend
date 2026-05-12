@@ -61,6 +61,7 @@ export interface TenantConfig {
     loginSubtitle: string;
     heroLine: string;
     footerNote: string;
+    motivationalPhrases: string[];
   };
 }
 
@@ -116,6 +117,14 @@ const defaultTenant: TenantConfig = {
     loginSubtitle: "Accedé con tu cuenta institucional",
     heroLine: "Tu espacio educativo, en un solo lugar.",
     footerNote: "Potenciado por Campus Educativo",
+    motivationalPhrases: [
+      "El aprendizaje es un viaje, no un destino. ¡Seguí adelante!",
+      "Cada día en el aula es un paso hacia tu futuro.",
+      "La constancia es la clave del éxito. ¡Vos podés!",
+      "Los grandes logros comienzan con pequeños esfuerzos diarios.",
+      "Tu esfuerzo de hoy es tu orgullo de mañana.",
+      "¡Hoy es un gran día para aprender algo nuevo!",
+    ],
   },
 };
 
