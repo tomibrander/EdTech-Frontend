@@ -1,18 +1,47 @@
 "use client";
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarCheck2, ExternalLink, GraduationCap, Mail, Phone } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarCheck2,
+  ExternalLink,
+  GraduationCap,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { RoleGate } from "@/components/auth/RoleGate";
-import { useStudent } from "@/features/students/hooks";
+import { useSession } from "@/features/auth/useSession";
+import { useStudent, useUpdateParents } from "@/features/students/hooks";
 import { formatDate, getInitials } from "@/lib/utils";
 import type { CourseHistoryEntry } from "@/types";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface ParentForm {
+  name: string;
+  email: string;
+  phone: string;
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StudentProfilePage({
   params,
@@ -21,6 +50,14 @@ export default function StudentProfilePage({
 }) {
   const { id } = use(params);
   const { data, isLoading } = useStudent(id);
+  const { role } = useSession();
+  const canEdit = role === "director" || role === "superadmin";
+
+  const [parentsOpen, setParentsOpen] = useState(false);
+
+  const openParentsDialog = () => {
+    setParentsOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -74,10 +111,25 @@ export default function StudentProfilePage({
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Adultos responsables</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Adultos responsables</CardTitle>
+              {canEdit && !isLoading && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={openParentsDialog}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            {data?.parents && data.parents.length > 0 ? (
+            {isLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : data?.parents && data.parents.length > 0 ? (
               <ul className="divide-y">
                 {data.parents.map((p, i) => (
                   <li key={i} className="flex flex-wrap items-center gap-4 py-3">
@@ -104,10 +156,17 @@ export default function StudentProfilePage({
                   </li>
                 ))}
               </ul>
-            ) : isLoading ? (
-              <Skeleton className="h-24 w-full" />
             ) : (
-              <p className="text-sm text-muted-foreground">Sin contactos registrados.</p>
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Sin adultos responsables registrados.
+                </p>
+                {canEdit && (
+                  <Button variant="outline" size="sm" onClick={openParentsDialog}>
+                    <Plus className="h-4 w-4" /> Agregar ahora
+                  </Button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -126,13 +185,11 @@ export default function StudentProfilePage({
               </div>
             ) : (
               <ol className="relative ml-3 space-y-0 border-l border-border">
-                {/* Curso actual — siempre primero */}
                 <AcademicEntry
                   courseCode={data.courseName ?? data.courseId}
                   year={new Date().getFullYear()}
                   isCurrent
                 />
-                {/* Historial — más reciente primero */}
                 {[...(data.courseHistory ?? [])].reverse().map((e, i) => (
                   <AcademicEntry key={i} {...e} isCurrent={false} />
                 ))}
@@ -170,9 +227,132 @@ export default function StudentProfilePage({
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de edición de adultos responsables */}
+      <Dialog open={parentsOpen} onOpenChange={setParentsOpen}>
+        <DialogContent className="max-w-lg">
+          <ParentsEditDialog
+            studentId={id}
+            initialParents={(data?.parents ?? []).map((p) => ({
+              name: p.name,
+              email: p.email,
+              phone: p.phone ?? "",
+            }))}
+            onClose={() => setParentsOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+// ─── ParentsEditDialog ────────────────────────────────────────────────────────
+
+function ParentsEditDialog({
+  studentId,
+  initialParents,
+  onClose,
+}: {
+  studentId: string;
+  initialParents: ParentForm[];
+  onClose: () => void;
+}) {
+  const [parents, setParents] = useState<ParentForm[]>(
+    initialParents.length > 0 ? initialParents : []
+  );
+  const { mutate, isPending } = useUpdateParents(studentId);
+
+  const update = (i: number, field: keyof ParentForm, value: string) =>
+    setParents((prev) =>
+      prev.map((p, idx) => (idx === i ? { ...p, [field]: value } : p))
+    );
+
+  const add = () =>
+    setParents((prev) => [...prev, { name: "", email: "", phone: "" }]);
+
+  const remove = (i: number) =>
+    setParents((prev) => prev.filter((_, idx) => idx !== i));
+
+  const save = () => {
+    const valid = parents
+      .filter((p) => p.name.trim() && p.email.trim())
+      .map((p) => ({ name: p.name.trim(), email: p.email.trim(), phone: p.phone.trim() || undefined }));
+    mutate(valid, { onSuccess: onClose });
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Adultos responsables</DialogTitle>
+      </DialogHeader>
+
+      <div className="max-h-[60vh] space-y-3 overflow-y-auto py-1 pr-1">
+        {parents.length === 0 && (
+          <p className="py-2 text-center text-sm text-muted-foreground">
+            No hay adultos cargados. Agregá uno abajo.
+          </p>
+        )}
+
+        {parents.map((p, i) => (
+          <div key={i} className="space-y-2 rounded-lg border p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Contacto {i + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+                aria-label="Eliminar"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <Input
+              placeholder="Nombre completo"
+              value={p.name}
+              onChange={(e) => update(i, "name", e.target.value)}
+            />
+            <Input
+              type="email"
+              placeholder="Email"
+              value={p.email}
+              onChange={(e) => update(i, "email", e.target.value)}
+            />
+            <Input
+              placeholder="Teléfono (opcional)"
+              value={p.phone}
+              onChange={(e) => update(i, "phone", e.target.value)}
+            />
+          </div>
+        ))}
+
+        {parents.length < 3 && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2"
+            onClick={add}
+          >
+            <Plus className="h-4 w-4" />
+            Agregar adulto responsable
+          </Button>
+        )}
+      </div>
+
+      <DialogFooter>
+        <Button variant="ghost" onClick={onClose} disabled={isPending}>
+          Cancelar
+        </Button>
+        <Button onClick={save} disabled={isPending}>
+          {isPending ? "Guardando…" : "Guardar"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Row({
   label,
@@ -203,7 +383,6 @@ function AcademicEntry(
 
   return (
     <li className="relative pb-6 pl-6 last:pb-0">
-      {/* Dot sobre el borde izquierdo */}
       <span
         className={`absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-card ${
           isCurrent ? "bg-primary" : "bg-muted-foreground"
@@ -211,22 +390,20 @@ function AcademicEntry(
       />
 
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        {/* Año */}
         <span className="min-w-[3rem] text-sm font-semibold tabular-nums text-muted-foreground">
           {props.year}
         </span>
-
-        {/* Curso + icono */}
         <span className="flex items-center gap-1.5 text-sm font-medium">
           <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
           {props.courseCode}
         </span>
-
-        {/* Estado */}
         {isCurrent ? (
           <Badge className="h-5 px-2 text-[11px]">Cursando</Badge>
         ) : promoted ? (
-          <Badge variant="outline" className="h-5 border-success/50 bg-success/10 px-2 text-[11px] text-success">
+          <Badge
+            variant="outline"
+            className="h-5 border-success/50 bg-success/10 px-2 text-[11px] text-success"
+          >
             Promovido
           </Badge>
         ) : (
@@ -236,9 +413,7 @@ function AcademicEntry(
         )}
       </div>
 
-      {notes && (
-        <p className="mt-1 text-xs text-muted-foreground">{notes}</p>
-      )}
+      {notes && <p className="mt-1 text-xs text-muted-foreground">{notes}</p>}
       {movedAt && (
         <p className="mt-0.5 text-[11px] text-muted-foreground/60">
           Cambio registrado el {formatDate(movedAt)}
