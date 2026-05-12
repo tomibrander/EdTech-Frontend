@@ -8,6 +8,7 @@ export function useThreads() {
     queryKey: ["threads"],
     queryFn: async () =>
       (await api.get<Paginated<MessageThread>>("/messages/threads")).data,
+    refetchInterval: 15000,
   });
 }
 
@@ -23,6 +24,7 @@ export function useThread(id: string, page = 1) {
         }>(`/messages/threads/${id}`, { params: { page } })
       ).data,
     enabled: !!id,
+    refetchInterval: 10000,
   });
 }
 
@@ -47,6 +49,21 @@ export function useSendMessage(threadId: string) {
       qc.invalidateQueries({ queryKey: ["thread", threadId] });
       qc.invalidateQueries({ queryKey: ["threads"] });
     },
+  });
+}
+
+export function useUserSearch(q: string) {
+  return useQuery({
+    queryKey: ["users", "search", q],
+    queryFn: async () =>
+      (
+        await api.get<{ id: string; displayName: string; role: string }[]>(
+          "/users/search",
+          { params: { q } },
+        )
+      ).data,
+    enabled: q.trim().length >= 2,
+    staleTime: 30000,
   });
 }
 

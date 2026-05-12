@@ -21,6 +21,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { EmptyState } from "@/components/data/EmptyState";
 import { RoleBadge } from "@/components/layout/RoleBadge";
 import {
@@ -28,6 +33,7 @@ import {
   useSendMessage,
   useThread,
   useThreads,
+  useUserSearch,
 } from "@/features/messages/hooks";
 import { fromNow, getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -35,6 +41,7 @@ import { useSession } from "@/features/auth/useSession";
 
 export default function MessagesPage() {
   const { data: threads, isLoading } = useThreads();
+  const { user } = useSession();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -60,7 +67,9 @@ export default function MessagesPage() {
             ) : threads && threads.data.length > 0 ? (
               <ul className="divide-y">
                 {threads.data.map((t) => {
-                  const other = t.participants[0];
+                  const other =
+                    t.participants.find((p) => p.id !== user?.id) ??
+                    t.participants[0];
                   return (
                     <li key={t.id}>
                       <button
@@ -71,11 +80,15 @@ export default function MessagesPage() {
                         )}
                       >
                         <Avatar className="h-9 w-9">
-                          <AvatarFallback>{getInitials(other?.name)}</AvatarFallback>
+                          <AvatarFallback>
+                            {getInitials(other?.name)}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-medium">{other?.name}</p>
+                            <p className="truncate text-sm font-medium">
+                              {other?.name}
+                            </p>
                             {t.unreadCount ? (
                               <Badge variant="default" className="h-5 shrink-0">
                                 {t.unreadCount}
@@ -119,6 +132,11 @@ function ThreadView({ threadId }: { threadId: string }) {
   const send = useSendMessage(threadId);
   const [body, setBody] = React.useState("");
   const { user } = useSession();
+  const bottomRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [data?.messages]);
 
   async function onSend() {
     if (!body.trim()) return;
@@ -139,34 +157,37 @@ function ThreadView({ threadId }: { threadId: string }) {
         {isLoading ? (
           <Skeleton className="h-20 w-full" />
         ) : data && data.messages.length > 0 ? (
-          data.messages.map((m) => {
-            const own = m.senderId === user?.id;
-            return (
-              <div
-                key={m.id}
-                className={cn(
-                  "flex flex-col gap-1",
-                  own ? "items-end" : "items-start"
-                )}
-              >
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-medium">{m.senderName}</span>
-                  <RoleBadge role={m.senderRole} />
-                  <span>· {fromNow(m.sentAt)}</span>
-                </div>
+          <>
+            {data.messages.map((m) => {
+              const own = m.senderId === user?.id;
+              return (
                 <div
+                  key={m.id}
                   className={cn(
-                    "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                    own
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
+                    "flex flex-col gap-1",
+                    own ? "items-end" : "items-start"
                   )}
                 >
-                  {m.body}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium">{m.senderName}</span>
+                    <RoleBadge role={m.senderRole} />
+                    <span>· {fromNow(m.sentAt)}</span>
+                  </div>
+                  <div
+                    className={cn(
+                      "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
+                      own
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground"
+                    )}
+                  >
+                    {m.body}
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+            <div ref={bottomRef} />
+          </>
         ) : (
           <EmptyState title="Sin mensajes" className="border-none" />
         )}
@@ -198,26 +219,45 @@ function ThreadView({ threadId }: { threadId: string }) {
 function NewThreadDialog({ onCreated }: { onCreated: (id: string) => void }) {
   const [open, setOpen] = React.useState(false);
   const create = useCreateThread();
-  const { register, handleSubmit, reset } = useForm<{
+  const { register, handleSubmit, reset, setValue, watch } = useForm<{
     recipientId: string;
+    recipientName: string;
     subject: string;
     message: string;
   }>();
 
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const { data: searchResults, isFetching } = useUserSearch(searchQuery);
+  const recipientName = watch("recipientName");
+
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const res = await create.mutateAsync(values);
+      const res = await create.mutateAsync({
+        recipientId: values.recipientId,
+        subject: values.subject,
+        message: values.message,
+      });
       toast.success("Conversación iniciada");
       setOpen(false);
       reset();
+      setSearchQuery("");
       onCreated(res.id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     }
   });
 
+  function handleDialogClose(v: boolean) {
+    if (!v) {
+      reset();
+      setSearchQuery("");
+    }
+    setOpen(v);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4" /> Nuevo mensaje
@@ -229,8 +269,68 @@ function NewThreadDialog({ onCreated }: { onCreated: (id: string) => void }) {
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-2">
-            <Label>Destinatario (userId)</Label>
-            <Input placeholder="usr_TEACH1" {...register("recipientId", { required: true })} />
+            <Label>Destinatario</Label>
+            <input type="hidden" {...register("recipientId", { required: true })} />
+            <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm text-left"
+                >
+                  {recipientName ? (
+                    <span>{recipientName}</span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Buscar por nombre…
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2" align="start">
+                <Input
+                  placeholder="Nombre o email…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+                <div className="mt-2 max-h-48 overflow-y-auto">
+                  {isFetching && (
+                    <p className="py-2 text-center text-xs text-muted-foreground">
+                      Buscando…
+                    </p>
+                  )}
+                  {!isFetching &&
+                    searchQuery.trim().length >= 2 &&
+                    (!searchResults || searchResults.length === 0) && (
+                      <p className="py-2 text-center text-xs text-muted-foreground">
+                        Sin resultados
+                      </p>
+                    )}
+                  {searchResults?.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                      onClick={() => {
+                        setValue("recipientId", u.id);
+                        setValue("recipientName", u.displayName);
+                        setSearchOpen(false);
+                      }}
+                    >
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-[10px]">
+                          {getInitials(u.displayName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{u.displayName}</span>
+                      <Badge variant="outline" className="ml-auto text-[10px]">
+                        {u.role}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-2">
             <Label>Asunto</Label>
@@ -241,11 +341,17 @@ function NewThreadDialog({ onCreated }: { onCreated: (id: string) => void }) {
             <Textarea rows={4} {...register("message", { required: true })} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleDialogClose(false)}
+            >
               Cancelar
             </Button>
             <Button type="submit" disabled={create.isPending}>
-              {create.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {create.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
               Enviar
             </Button>
           </DialogFooter>
