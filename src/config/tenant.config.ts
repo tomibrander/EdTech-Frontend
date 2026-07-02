@@ -152,6 +152,7 @@ const sanMartinTenant: TenantConfig = {
     },
   },
   textos: {
+    ...defaultTenant.textos,
     loginTitle: "Campus Colegio San Martín",
     loginSubtitle: "Ingresá con tu cuenta institucional",
     heroLine: "Educación de excelencia desde 1952.",
