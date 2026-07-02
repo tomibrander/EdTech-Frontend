@@ -8,7 +8,7 @@ export function useThreads() {
     queryKey: ["threads"],
     queryFn: async () =>
       (await api.get<Paginated<MessageThread>>("/messages/threads")).data,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
 }
 
@@ -24,7 +24,6 @@ export function useThread(id: string, page = 1) {
         }>(`/messages/threads/${id}`, { params: { page } })
       ).data,
     enabled: !!id,
-    refetchInterval: 10000,
   });
 }
 
@@ -64,6 +63,15 @@ export function useUserSearch(q: string) {
       ).data,
     enabled: q.trim().length >= 2,
     staleTime: 30000,
+  });
+}
+
+export function useUnreadCount() {
+  return useQuery({
+    queryKey: ["unread-count"],
+    queryFn: async () =>
+      (await api.get<{ count: number }>("/messages/threads/unread-count")).data,
+    refetchInterval: 30000,
   });
 }
 

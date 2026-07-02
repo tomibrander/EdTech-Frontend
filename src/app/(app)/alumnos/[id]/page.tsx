@@ -30,7 +30,8 @@ import {
 import { RoleGate } from "@/components/auth/RoleGate";
 import { useSession } from "@/features/auth/useSession";
 import { useStudent, useUpdateParents } from "@/features/students/hooks";
-import { formatDate, getInitials } from "@/lib/utils";
+import { useAttendanceSummary } from "@/features/attendance/hooks";
+import { formatDate, getInitials, cn } from "@/lib/utils";
 import type { CourseHistoryEntry } from "@/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ export default function StudentProfilePage({
 }) {
   const { id } = use(params);
   const { data, isLoading } = useStudent(id);
+  const { data: attendance, isLoading: attendanceLoading } = useAttendanceSummary(id, new Date().getFullYear());
   const { role } = useSession();
   const canEdit = role === "director" || role === "superadmin";
 
@@ -171,6 +173,88 @@ export default function StudentProfilePage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Asistencia {new Date().getFullYear()}</CardTitle>
+            {attendance && (
+              <span
+                className={cn(
+                  "text-sm font-semibold",
+                  attendance.percentage >= 75
+                    ? "text-emerald-600"
+                    : "text-destructive"
+                )}
+              >
+                {attendance.percentage.toFixed(1)}%
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {attendanceLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : attendance ? (
+            <>
+              {attendance.percentage < 75 && (
+                <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <span className="font-medium">Riesgo de inasistencia</span>
+                  <span className="text-destructive/70">
+                    · Por debajo del 75% requerido
+                  </span>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-2xl font-semibold">{attendance.presentDays}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Presentes</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-2xl font-semibold">{attendance.absentDays}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Ausentes</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-2xl font-semibold">{attendance.lateDays}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Tardanzas</p>
+                </div>
+              </div>
+              {attendance.byMonth.length > 0 && (
+                <div className="flex items-end gap-1.5 pt-1" style={{ height: 72 }}>
+                  {attendance.byMonth.map((m) => {
+                    const total = m.present + m.absent + m.late;
+                    const pct = total > 0 ? (m.present / total) * 100 : 0;
+                    return (
+                      <div
+                        key={m.month}
+                        className="group relative flex flex-1 flex-col items-center gap-1"
+                      >
+                        <div
+                          className="relative w-full rounded-t bg-muted"
+                          style={{ height: 48 }}
+                        >
+                          <div
+                            className={cn(
+                              "absolute bottom-0 left-0 right-0 rounded-t transition-all duration-500",
+                              pct >= 75 ? "bg-primary" : "bg-destructive"
+                            )}
+                            style={{ height: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">
+                          {m.month.slice(0, 3)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sin registros de asistencia.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <RoleGate roles={["director", "superadmin"]} fallback={null}>
         <Card>

@@ -35,11 +35,13 @@ import {
   useThreads,
   useUserSearch,
 } from "@/features/messages/hooks";
+import { useMessagesSocket } from "@/features/messages/useMessagesSocket";
 import { fromNow, getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/features/auth/useSession";
 
 export default function MessagesPage() {
+  useMessagesSocket();
   const { data: threads, isLoading } = useThreads();
   const { user } = useSession();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);

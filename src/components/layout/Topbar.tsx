@@ -27,12 +27,15 @@ import { Sidebar } from "./Sidebar";
 import { RoleBadge } from "./RoleBadge";
 import { useSession } from "@/features/auth/useSession";
 import { useLogout } from "@/features/auth/hooks";
+import { useUnreadCount } from "@/features/messages/hooks";
 import { getInitials } from "@/lib/utils";
 
 export function Topbar() {
   const { user } = useSession();
   const router = useRouter();
   const logout = useLogout();
+  const { data: unreadData } = useUnreadCount();
+  const unreadCount = unreadData?.count ?? 0;
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
 
@@ -72,8 +75,15 @@ export function Topbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="ghost" size="icon" aria-label="Notificaciones">
-          <Bell className="h-5 w-5" />
+        <Button variant="ghost" size="icon" aria-label="Notificaciones" asChild>
+          <Link href="/mensajes" className="relative">
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </Link>
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
