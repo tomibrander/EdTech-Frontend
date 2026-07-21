@@ -109,9 +109,12 @@ export function GoogleSignInButton({
     [onCredential, onError],
   );
 
+  // Se inicializa una sola vez por script/clientId/callback. Si dependiera
+  // también de `width`, cada resize dispara initialize() de nuevo y GSI
+  // logea "initialize() is called multiple times" (warning inofensivo, pero
+  // evitable separando init de render).
   useEffect(() => {
     if (!scriptReady) return;
-    if (!containerRef.current) return;
     if (!clientId) {
       onError?.("Falta NEXT_PUBLIC_GOOGLE_CLIENT_ID");
       return;
@@ -124,6 +127,14 @@ export function GoogleSignInButton({
       auto_select: false,
       cancel_on_tap_outside: true,
     });
+  }, [scriptReady, clientId, handleCredential, onError]);
+
+  useEffect(() => {
+    if (!scriptReady) return;
+    if (!containerRef.current) return;
+    if (!clientId) return;
+    const accounts = window.google?.accounts.id;
+    if (!accounts) return;
     containerRef.current.innerHTML = "";
     accounts.renderButton(containerRef.current, {
       type: "standard",
@@ -135,7 +146,7 @@ export function GoogleSignInButton({
       logo_alignment: "left",
       locale: "es",
     });
-  }, [scriptReady, clientId, handleCredential, onError, width, text]);
+  }, [scriptReady, clientId, width, text]);
 
   return (
     <div className="space-y-2">
