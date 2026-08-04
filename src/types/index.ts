@@ -213,6 +213,8 @@ export interface WorkspaceGroup {
   memberCount: number;
   members: string[];
   createdAt?: string;
+  linkedCourseCode?: string;
+  linkedCourseName?: string;
 }
 
 export interface StudentDashboard {

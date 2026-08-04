@@ -1,8 +1,9 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Building2, Loader2, UserMinus, UserPlus, Users } from "lucide-react";
+import { Building2, GraduationCap, Loader2, UserMinus, UserPlus, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +66,17 @@ function GroupsListCard() {
             {groups.map((g) => (
               <li key={g.googleGroupId} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-sm font-medium">{g.name || g.email}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{g.name || g.email}</p>
+                    {g.linkedCourseCode && (
+                      <Link href={`/cursos/${g.linkedCourseCode}`}>
+                        <Badge variant="secondary" className="gap-1 text-[11px]">
+                          <GraduationCap className="h-3 w-3" />
+                          {g.linkedCourseName ?? g.linkedCourseCode}
+                        </Badge>
+                      </Link>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">{g.email}</p>
                 </div>
                 <div className="flex items-center gap-2">
