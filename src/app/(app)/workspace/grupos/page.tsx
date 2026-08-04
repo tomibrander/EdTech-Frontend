@@ -18,6 +18,7 @@ import { RoleGate } from "@/components/auth/RoleGate";
 import {
   useAddGroupMember,
   useCreateGroup,
+  useGroupMembers,
   useGroups,
   useRemoveGroupMember,
 } from "@/features/workspace/hooks";
@@ -88,6 +89,7 @@ function GroupsListCard() {
 function ManageMemberPopover({ groupEmail }: { groupEmail: string }) {
   const [open, setOpen] = React.useState(false);
   const [email, setEmail] = React.useState("");
+  const { data: members, isFetching: loadingMembers } = useGroupMembers(groupEmail, open);
   const add = useAddGroupMember();
   const remove = useRemoveGroupMember();
   const pending = add.isPending || remove.isPending;
@@ -102,18 +104,16 @@ function ManageMemberPopover({ groupEmail }: { groupEmail: string }) {
     try {
       await add.mutateAsync({ groupEmail, memberEmail: email.trim() });
       toast.success("Miembro agregado");
-      handleOpenChange(false);
+      setEmail("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     }
   }
 
-  async function handleRemove() {
-    if (!email.trim()) return;
+  async function handleRemoveByEmail(memberEmail: string) {
     try {
-      await remove.mutateAsync({ groupEmail, memberEmail: email.trim() });
+      await remove.mutateAsync({ groupEmail, memberEmail });
       toast.success("Miembro quitado");
-      handleOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     }
@@ -126,45 +126,62 @@ function ManageMemberPopover({ groupEmail }: { groupEmail: string }) {
           Miembros
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 space-y-2 p-3" align="end">
-        <Label className="text-xs">Email del miembro</Label>
-        <Input
-          type="email"
-          placeholder="alumno@colegio.edu.ar"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoFocus
-        />
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="flex-1 gap-1.5"
-            onClick={handleAdd}
-            disabled={pending || !email.trim()}
-          >
-            {add.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <UserPlus className="h-3.5 w-3.5" />
+      <PopoverContent className="w-80 space-y-3 p-3" align="end">
+        <div>
+          <Label className="text-xs text-muted-foreground">
+            Miembros actuales
+          </Label>
+          <div className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
+            {loadingMembers && (
+              <p className="py-2 text-center text-xs text-muted-foreground">Cargando…</p>
             )}
-            Agregar
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="flex-1 gap-1.5"
-            onClick={handleRemove}
-            disabled={pending || !email.trim()}
-          >
-            {remove.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <UserMinus className="h-3.5 w-3.5" />
+            {!loadingMembers && members?.length === 0 && (
+              <p className="py-2 text-center text-xs text-muted-foreground">
+                Sin miembros
+              </p>
             )}
-            Quitar
-          </Button>
+            {members?.map((m) => (
+              <div
+                key={m.email}
+                className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
+              >
+                <span className="truncate">{m.email}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveByEmail(m.email)}
+                  disabled={pending}
+                  className="shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                  aria-label={`Quitar a ${m.email}`}
+                >
+                  <UserMinus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2 border-t pt-2">
+          <Label className="text-xs">Agregar por email</Label>
+          <div className="flex gap-2">
+            <Input
+              type="email"
+              placeholder="alumno@colegio.edu.ar"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <Button
+              type="button"
+              size="icon"
+              onClick={handleAdd}
+              disabled={pending || !email.trim()}
+            >
+              {add.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>

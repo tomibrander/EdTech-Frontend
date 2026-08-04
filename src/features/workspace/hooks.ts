@@ -104,6 +104,19 @@ export function useCreateGroup() {
   });
 }
 
+export function useGroupMembers(groupEmail: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["workspace", "groups", groupEmail, "members"],
+    queryFn: async () =>
+      (
+        await api.get<{ email: string; role: string }[]>(
+          `/workspace/groups/${encodeURIComponent(groupEmail)}/members`
+        )
+      ).data,
+    enabled,
+  });
+}
+
 export function useAddGroupMember() {
   const qc = useQueryClient();
   return useMutation({
