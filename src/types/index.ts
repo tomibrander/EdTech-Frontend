@@ -90,6 +90,7 @@ export interface Course {
   name: string;
   year: number;
   classroomCourseId?: string;
+  workspaceGroupEmail?: string;
   teacherId?: string;
   teacherName?: string;
   studentCount?: number;

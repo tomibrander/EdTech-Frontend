@@ -1,7 +1,8 @@
 "use client";
+import * as React from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Building2, Loader2, Users } from "lucide-react";
+import { Building2, Loader2, UserMinus, UserPlus, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +13,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/data/EmptyState";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RoleGate } from "@/components/auth/RoleGate";
-import { useCreateGroup, useGroups } from "@/features/workspace/hooks";
+import {
+  useAddGroupMember,
+  useCreateGroup,
+  useGroups,
+  useRemoveGroupMember,
+} from "@/features/workspace/hooks";
 
 export default function WorkspaceGroupsPage() {
   return (
@@ -60,10 +67,13 @@ function GroupsListCard() {
                   <p className="text-sm font-medium">{g.name || g.email}</p>
                   <p className="text-xs text-muted-foreground">{g.email}</p>
                 </div>
-                <Badge variant="outline" className="gap-1.5">
-                  <Users className="h-3 w-3" />
-                  {g.memberCount}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="gap-1.5">
+                    <Users className="h-3 w-3" />
+                    {g.memberCount}
+                  </Badge>
+                  <ManageMemberPopover groupEmail={g.email} />
+                </div>
               </li>
             ))}
           </ul>
@@ -72,6 +82,92 @@ function GroupsListCard() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ManageMemberPopover({ groupEmail }: { groupEmail: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  const add = useAddGroupMember();
+  const remove = useRemoveGroupMember();
+  const pending = add.isPending || remove.isPending;
+
+  function handleOpenChange(v: boolean) {
+    if (!v) setEmail("");
+    setOpen(v);
+  }
+
+  async function handleAdd() {
+    if (!email.trim()) return;
+    try {
+      await add.mutateAsync({ groupEmail, memberEmail: email.trim() });
+      toast.success("Miembro agregado");
+      handleOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function handleRemove() {
+    if (!email.trim()) return;
+    try {
+      await remove.mutateAsync({ groupEmail, memberEmail: email.trim() });
+      toast.success("Miembro quitado");
+      handleOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm">
+          Miembros
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 space-y-2 p-3" align="end">
+        <Label className="text-xs">Email del miembro</Label>
+        <Input
+          type="email"
+          placeholder="alumno@colegio.edu.ar"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="flex-1 gap-1.5"
+            onClick={handleAdd}
+            disabled={pending || !email.trim()}
+          >
+            {add.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <UserPlus className="h-3.5 w-3.5" />
+            )}
+            Agregar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="flex-1 gap-1.5"
+            onClick={handleRemove}
+            disabled={pending || !email.trim()}
+          >
+            {remove.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <UserMinus className="h-3.5 w-3.5" />
+            )}
+            Quitar
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

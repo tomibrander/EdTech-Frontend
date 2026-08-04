@@ -93,6 +93,38 @@ export function useStudentSuggestions(search: string) {
   });
 }
 
+export function useCourse(courseId: string) {
+  return useQuery({
+    queryKey: ["courses", courseId],
+    queryFn: async () => (await api.get<Course>(`/courses/${courseId}`)).data,
+    enabled: !!courseId,
+  });
+}
+
+export function useLinkCourseGroup(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (email: string) =>
+      (await api.patch<Course>(`/courses/${courseId}/group`, { email })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses", courseId] });
+      qc.invalidateQueries({ queryKey: ["workspace", "groups"] });
+    },
+  });
+}
+
+export function useCreateCourseGroup(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: { email: string; name?: string; description?: string }) =>
+      (await api.post<Course>(`/courses/${courseId}/group`, values)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses", courseId] });
+      qc.invalidateQueries({ queryKey: ["workspace", "groups"] });
+    },
+  });
+}
+
 export function useCourseStudents(courseId: string) {
   return useQuery({
     queryKey: ["courses", courseId, "students"],

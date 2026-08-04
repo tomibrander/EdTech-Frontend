@@ -24,10 +24,14 @@ import { EmptyState } from "@/components/data/EmptyState";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   useAddStudentToCourse,
+  useCourse,
   useCourseStudents,
+  useCreateCourseGroup,
+  useLinkCourseGroup,
   useRemoveStudentFromCourse,
   useStudentSuggestions,
 } from "@/features/courses/hooks";
+import { useGroups } from "@/features/workspace/hooks";
 import { getInitials } from "@/lib/utils";
 
 export default function CourseDetailPage({
@@ -51,6 +55,8 @@ export default function CourseDetailPage({
         description="Alumnos inscriptos al curso"
         actions={<AddStudentDialog courseId={id} />}
       />
+
+      <CourseGroupCard courseId={id} />
 
       <Card>
         <CardHeader>
@@ -101,6 +107,176 @@ export default function CourseDetailPage({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function CourseGroupCard({ courseId }: { courseId: string }) {
+  const { data: course } = useCourse(courseId);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Grupo de Google</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {course?.workspaceGroupEmail ? (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">{course.workspaceGroupEmail}</p>
+              <p className="text-xs text-muted-foreground">
+                Los alumnos del curso se sincronizan automáticamente con este grupo.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+              Cambiar
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              Este curso todavía no tiene un grupo de Google vinculado.
+            </p>
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              Vincular grupo
+            </Button>
+          </div>
+        )}
+      </CardContent>
+      <GroupLinkDialog courseId={courseId} open={dialogOpen} onOpenChange={setDialogOpen} />
+    </Card>
+  );
+}
+
+function GroupLinkDialog({
+  courseId,
+  open,
+  onOpenChange,
+}: {
+  courseId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [mode, setMode] = React.useState<"existing" | "new">("existing");
+  const { data: groups } = useGroups();
+  const [selectedEmail, setSelectedEmail] = React.useState("");
+  const [newEmail, setNewEmail] = React.useState("");
+  const [newName, setNewName] = React.useState("");
+  const link = useLinkCourseGroup(courseId);
+  const create = useCreateCourseGroup(courseId);
+
+  function handleClose(v: boolean) {
+    if (!v) {
+      setSelectedEmail("");
+      setNewEmail("");
+      setNewName("");
+    }
+    onOpenChange(v);
+  }
+
+  async function handleLink() {
+    if (!selectedEmail) return;
+    try {
+      await link.mutateAsync(selectedEmail);
+      toast.success("Grupo vinculado, sincronizando alumnos…");
+      handleClose(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function handleCreate() {
+    if (!newEmail.trim()) return;
+    try {
+      await create.mutateAsync({ email: newEmail.trim(), name: newName.trim() || undefined });
+      toast.success("Grupo creado y vinculado");
+      handleClose(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Vincular grupo de Google</DialogTitle>
+        </DialogHeader>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={mode === "existing" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMode("existing")}
+          >
+            Grupo existente
+          </Button>
+          <Button
+            type="button"
+            variant={mode === "new" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMode("new")}
+          >
+            Crear nuevo
+          </Button>
+        </div>
+
+        {mode === "existing" ? (
+          <div className="space-y-2">
+            <Label>Elegí un grupo</Label>
+            <select
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={selectedEmail}
+              onChange={(e) => setSelectedEmail(e.target.value)}
+            >
+              <option value="">Seleccionar…</option>
+              {groups?.map((g) => (
+                <option key={g.googleGroupId} value={g.email}>
+                  {g.name || g.email}
+                </option>
+              ))}
+            </select>
+            {groups?.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No hay grupos en el dominio todavía. Creá uno nuevo.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Email del grupo nuevo</Label>
+            <Input
+              type="email"
+              placeholder="1a-2026@tudominio.edu.ar"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+            />
+            <Label>Nombre (opcional)</Label>
+            <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <p className="text-xs text-muted-foreground">
+              Se crea con los alumnos actuales del curso como miembros iniciales.
+            </p>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleClose(false)}>
+            Cancelar
+          </Button>
+          {mode === "existing" ? (
+            <Button onClick={handleLink} disabled={link.isPending || !selectedEmail}>
+              {link.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Vincular
+            </Button>
+          ) : (
+            <Button onClick={handleCreate} disabled={create.isPending || !newEmail.trim()}>
+              {create.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Crear y vincular
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

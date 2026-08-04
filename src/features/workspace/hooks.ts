@@ -103,3 +103,29 @@ export function useCreateGroup() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", "groups"] }),
   });
 }
+
+export function useAddGroupMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: { groupEmail: string; memberEmail: string }) =>
+      (
+        await api.post(
+          `/workspace/groups/${encodeURIComponent(values.groupEmail)}/members`,
+          { memberEmail: values.memberEmail }
+        )
+      ).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", "groups"] }),
+  });
+}
+
+export function useRemoveGroupMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: { groupEmail: string; memberEmail: string }) => {
+      await api.delete(
+        `/workspace/groups/${encodeURIComponent(values.groupEmail)}/members/${encodeURIComponent(values.memberEmail)}`
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", "groups"] }),
+  });
+}
