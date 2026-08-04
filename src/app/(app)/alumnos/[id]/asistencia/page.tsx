@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/data/StatCard";
 import { useAttendanceSummary } from "@/features/attendance/hooks";
+import { useStudent } from "@/features/students/hooks";
 
 export default function StudentAttendancePage({
   params,
@@ -17,6 +18,7 @@ export default function StudentAttendancePage({
 }) {
   const { id } = use(params);
   const { data, isLoading } = useAttendanceSummary(id, new Date().getFullYear());
+  const { data: student } = useStudent(id);
 
   return (
     <div className="space-y-6">
@@ -28,7 +30,9 @@ export default function StudentAttendancePage({
 
       <PageHeader
         title="Asistencia del alumno"
-        description={data ? `${data.studentName} · año ${data.year}` : undefined}
+        description={
+          student && data ? `${student.displayName} · año ${data.year}` : undefined
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -49,7 +53,7 @@ export default function StudentAttendancePage({
         <CardContent>
           {isLoading ? (
             <Skeleton className="h-40 w-full" />
-          ) : data && data.byMonth.length > 0 ? (
+          ) : data && (data.byMonth?.length ?? 0) > 0 ? (
             <ul className="space-y-2">
               {data.byMonth.map((m) => {
                 const total = m.present + m.absent + m.late;

@@ -66,12 +66,13 @@ export function useUserSearch(q: string) {
   });
 }
 
-export function useUnreadCount() {
+export function useUnreadCount(enabled = true) {
   return useQuery({
     queryKey: ["unread-count"],
     queryFn: async () =>
       (await api.get<{ count: number }>("/messages/threads/unread-count")).data,
     refetchInterval: 30000,
+    enabled,
   });
 }
 

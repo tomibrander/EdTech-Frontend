@@ -34,7 +34,7 @@ export function Topbar() {
   const { user } = useSession();
   const router = useRouter();
   const logout = useLogout();
-  const { data: unreadData } = useUnreadCount();
+  const { data: unreadData } = useUnreadCount(user?.role !== "pendiente");
   const unreadCount = unreadData?.count ?? 0;
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);

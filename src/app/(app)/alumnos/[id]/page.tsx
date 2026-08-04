@@ -219,7 +219,7 @@ export default function StudentProfilePage({
                   <p className="mt-0.5 text-xs text-muted-foreground">Tardanzas</p>
                 </div>
               </div>
-              {attendance.byMonth.length > 0 && (
+              {(attendance.byMonth?.length ?? 0) > 0 && (
                 <div className="flex items-end gap-1.5 pt-1" style={{ height: 72 }}>
                   {attendance.byMonth.map((m) => {
                     const total = m.present + m.absent + m.late;

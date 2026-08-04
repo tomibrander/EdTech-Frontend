@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { RouteProgress } from "@/components/layout/RouteProgress";
 
 const PENDIENTE_PATH = "/dashboard/pendiente";
+const ACCESS_DENIED_PATH = "/acceso-denegado";
 
 export default async function AppLayout({
   children,
@@ -19,7 +20,7 @@ export default async function AppLayout({
   if (user.role === "pendiente") {
     const h = await headers();
     const path = h.get("x-pathname") ?? "";
-    if (!path.startsWith(PENDIENTE_PATH)) {
+    if (!path.startsWith(PENDIENTE_PATH) && !path.startsWith(ACCESS_DENIED_PATH)) {
       redirect(PENDIENTE_PATH);
     }
   }

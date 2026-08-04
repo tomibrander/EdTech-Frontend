@@ -110,7 +110,6 @@ export interface AttendanceRecord {
 
 export interface AttendanceSummary {
   studentId: string;
-  studentName: string;
   year: number;
   totalDays: number;
   presentDays: number;
