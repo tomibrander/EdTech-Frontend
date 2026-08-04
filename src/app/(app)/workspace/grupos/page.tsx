@@ -1,7 +1,7 @@
 "use client";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Building2, Loader2 } from "lucide-react";
+import { Building2, Loader2, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/data/EmptyState";
 import { RoleGate } from "@/components/auth/RoleGate";
-import { useCreateGroup } from "@/features/workspace/hooks";
+import { useCreateGroup, useGroups } from "@/features/workspace/hooks";
 
 export default function WorkspaceGroupsPage() {
   return (
@@ -28,8 +31,47 @@ export default function WorkspaceGroupsPage() {
           description="Administración de grupos (distribución y permisos)"
         />
         <CreateGroupCard />
+        <GroupsListCard />
       </div>
     </RoleGate>
+  );
+}
+
+function GroupsListCard() {
+  const { data: groups, isLoading } = useGroups();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Grupos del dominio ({groups?.length ?? 0})</CardTitle>
+        <CardDescription>Grupos existentes en tu Google Workspace</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : groups && groups.length > 0 ? (
+          <ul className="divide-y">
+            {groups.map((g) => (
+              <li key={g.googleGroupId} className="flex items-center justify-between py-3">
+                <div>
+                  <p className="text-sm font-medium">{g.name || g.email}</p>
+                  <p className="text-xs text-muted-foreground">{g.email}</p>
+                </div>
+                <Badge variant="outline" className="gap-1.5">
+                  <Users className="h-3 w-3" />
+                  {g.memberCount}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState title="No hay grupos en el dominio todavía" />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

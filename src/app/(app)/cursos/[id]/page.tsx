@@ -21,10 +21,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/data/EmptyState";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   useAddStudentToCourse,
   useCourseStudents,
   useRemoveStudentFromCourse,
+  useStudentSuggestions,
 } from "@/features/courses/hooks";
 import { getInitials } from "@/lib/utils";
 
@@ -104,11 +106,28 @@ export default function CourseDetailPage({
 
 function AddStudentDialog({ courseId }: { courseId: string }) {
   const [open, setOpen] = React.useState(false);
-  const [studentId, setStudentId] = React.useState("");
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [selected, setSelected] = React.useState<{ id: string; displayName: string } | null>(
+    null
+  );
   const add = useAddStudentToCourse(courseId);
+  const { data: currentStudents } = useCourseStudents(courseId);
+  const { data: suggestions, isFetching } = useStudentSuggestions(searchQuery);
+
+  const enrolledIds = new Set(currentStudents?.data.map((s) => s.id) ?? []);
+  const results = (suggestions ?? []).filter((s) => !enrolledIds.has(s.id));
+
+  function handleClose(v: boolean) {
+    if (!v) {
+      setSearchQuery("");
+      setSelected(null);
+    }
+    setOpen(v);
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4" /> Agregar alumno
@@ -119,33 +138,77 @@ function AddStudentDialog({ courseId }: { courseId: string }) {
           <DialogTitle>Agregar alumno al curso</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
-          <Label>ID del alumno</Label>
-          <Input
-            placeholder="usr_0ZLUQ"
-            value={studentId}
-            onChange={(e) => setStudentId(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Se llama a courses.students.create en Google Classroom.
-          </p>
+          <Label>Alumno</Label>
+          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm text-left"
+              >
+                {selected ? (
+                  <span>{selected.displayName}</span>
+                ) : (
+                  <span className="text-muted-foreground">Buscar por nombre…</span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-2" align="start">
+              <Input
+                placeholder="Nombre del alumno…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+              />
+              <div className="mt-2 max-h-48 overflow-y-auto">
+                {isFetching && (
+                  <p className="py-2 text-center text-xs text-muted-foreground">Buscando…</p>
+                )}
+                {!isFetching && searchQuery.trim().length >= 2 && results.length === 0 && (
+                  <p className="py-2 text-center text-xs text-muted-foreground">
+                    Sin resultados
+                  </p>
+                )}
+                {results.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                    onClick={() => {
+                      setSelected({ id: s.id, displayName: s.displayName });
+                      setSearchOpen(false);
+                    }}
+                  >
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-[10px]">
+                        {getInitials(s.displayName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate">{s.displayName}</span>
+                    <span className="ml-auto truncate text-xs text-muted-foreground">
+                      {s.courseName}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => handleClose(false)}>
             Cancelar
           </Button>
           <Button
             onClick={async () => {
-              if (!studentId.trim()) return;
+              if (!selected) return;
               try {
-                await add.mutateAsync(studentId);
+                await add.mutateAsync(selected.id);
                 toast.success("Alumno agregado");
-                setStudentId("");
-                setOpen(false);
+                handleClose(false);
               } catch (err) {
                 toast.error(err instanceof Error ? err.message : "Error");
               }
             }}
-            disabled={add.isPending}
+            disabled={add.isPending || !selected}
           >
             {add.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Agregar

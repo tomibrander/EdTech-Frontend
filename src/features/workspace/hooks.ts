@@ -84,7 +84,15 @@ export function useSuspendUser() {
   });
 }
 
+export function useGroups() {
+  return useQuery({
+    queryKey: ["workspace", "groups"],
+    queryFn: async () => (await api.get<WorkspaceGroup[]>("/workspace/groups")).data,
+  });
+}
+
 export function useCreateGroup() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: {
       email: string;
@@ -92,5 +100,6 @@ export function useCreateGroup() {
       description?: string;
       members?: string[];
     }) => (await api.post<WorkspaceGroup>("/workspace/groups", values)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", "groups"] }),
   });
 }

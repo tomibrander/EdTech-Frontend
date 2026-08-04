@@ -1,7 +1,11 @@
 "use client";
+import { Users } from "lucide-react";
 import { useCurrentUser } from "@/features/auth/hooks";
+import { useGroups } from "@/features/workspace/hooks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/data/EmptyState";
 import { RoleBadge } from "@/components/layout/RoleBadge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { formatDateTime } from "@/lib/utils";
@@ -35,7 +39,43 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+      <MyGroupsCard />
     </div>
+  );
+}
+
+function MyGroupsCard() {
+  const { data: groups, isLoading } = useGroups();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Mis grupos</CardTitle>
+        <CardDescription>Grupos de Google Workspace a los que pertenecés</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-10 w-full" />
+        ) : groups && groups.length > 0 ? (
+          <ul className="divide-y">
+            {groups.map((g) => (
+              <li key={g.googleGroupId} className="flex items-center justify-between py-3 text-sm">
+                <div>
+                  <p className="font-medium">{g.name || g.email}</p>
+                  <p className="text-xs text-muted-foreground">{g.email}</p>
+                </div>
+                <Badge variant="outline" className="gap-1.5">
+                  <Users className="h-3 w-3" />
+                  {g.memberCount}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState title="No pertenecés a ningún grupo todavía" />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
