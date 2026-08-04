@@ -93,6 +93,25 @@ export function useStudentSuggestions(search: string) {
   });
 }
 
+export function useBackfillCourseGroups() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      (
+        await api.post<{
+          total: number;
+          created: number;
+          skipped: number;
+          failed: { code: string; reason: string }[];
+        }>("/courses/backfill-groups")
+      ).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["workspace", "groups"] });
+    },
+  });
+}
+
 export function useCourse(courseId: string) {
   return useQuery({
     queryKey: ["courses", courseId],

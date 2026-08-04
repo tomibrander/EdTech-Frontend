@@ -10,6 +10,7 @@ import {
   Loader2,
   Plus,
   Users,
+  UsersRound,
   X,
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ import { RoleGate } from "@/components/auth/RoleGate";
 import {
   useCourses,
   useBulkUpsertCourses,
+  useBackfillCourseGroups,
   useStudentSuggestions,
   courseCreateSchema,
   type CourseCreateValues,
@@ -62,6 +64,9 @@ export default function CoursesListPage() {
               }
               placeholder="Año"
             />
+            <RoleGate roles={["superadmin"]} fallback={null}>
+              <BackfillGroupsButton />
+            </RoleGate>
             <RoleGate roles={["superadmin", "director"]} fallback={null}>
               <BulkCoursesButton />
             </RoleGate>
@@ -120,6 +125,42 @@ export default function CoursesListPage() {
         <EmptyState title="Sin cursos" description="Todavía no hay cursos cargados." />
       )}
     </div>
+  );
+}
+
+function BackfillGroupsButton() {
+  const backfill = useBackfillCourseGroups();
+
+  async function handleClick() {
+    if (
+      !confirm(
+        "Esto crea un grupo de Google Workspace real para cada curso que todavía no tiene uno vinculado. ¿Continuar?"
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await backfill.mutateAsync();
+      toast.success(
+        `Grupos creados: ${res.created}${res.failed.length ? `, fallaron: ${res.failed.length}` : ""}${res.skipped ? `, omitidos: ${res.skipped}` : ""}`
+      );
+      if (res.failed.length) {
+        res.failed.forEach((f) => toast.error(`${f.code}: ${f.reason}`));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  return (
+    <Button variant="outline" onClick={handleClick} disabled={backfill.isPending}>
+      {backfill.isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <UsersRound className="h-4 w-4" />
+      )}
+      Crear grupos faltantes
+    </Button>
   );
 }
 
