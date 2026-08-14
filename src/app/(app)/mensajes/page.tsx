@@ -39,6 +39,7 @@ import { useMessagesSocket } from "@/features/messages/useMessagesSocket";
 import { fromNow, getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/features/auth/useSession";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function MessagesPage() {
   useMessagesSocket();
@@ -146,7 +147,7 @@ function ThreadView({ threadId }: { threadId: string }) {
       await send.mutateAsync(body);
       setBody("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos enviar");
+      toast.error(getApiErrorMessage(err));
     }
   }
 
@@ -246,7 +247,7 @@ function NewThreadDialog({ onCreated }: { onCreated: (id: string) => void }) {
       setSearchQuery("");
       onCreated(res.id);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   });
 

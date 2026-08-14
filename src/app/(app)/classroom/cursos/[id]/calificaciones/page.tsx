@@ -32,6 +32,7 @@ import {
   useCourseWork,
   useSubmitGrades,
 } from "@/features/classroom/hooks";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function GradesPage({
   params,
@@ -63,7 +64,7 @@ export default function GradesPage({
       await submit.mutateAsync({ workId, grades: payload });
       toast.success(`Cargadas ${payload.length} notas`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   }
 

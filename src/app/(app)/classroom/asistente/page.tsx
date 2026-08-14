@@ -13,6 +13,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAIQuery } from "@/features/classroom/hooks";
 import { useSession } from "@/features/auth/useSession";
 import type { AIAssistantResponse } from "@/types";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 interface ChatItem {
   role: "user" | "assistant";
@@ -50,7 +51,7 @@ export default function AIAssistantPage() {
         { role: "assistant", content: res.answer, sources: res.sources },
       ]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error del asistente");
+      toast.error(getApiErrorMessage(err));
     }
   }
 

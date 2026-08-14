@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/data/EmptyState";
 import { RoleGate } from "@/components/auth/RoleGate";
+import { getApiErrorMessage } from "@/lib/api/client";
 import {
   useCreateWorkspaceUser,
   useMoveUserOU,
@@ -141,7 +142,7 @@ function CreateUserCard({
         );
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   });
 
@@ -226,7 +227,7 @@ function MoveOUCard() {
       toast.success("Usuario movido de OU");
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   });
 
@@ -270,7 +271,7 @@ function SuspendUserCard() {
       toast.success("Cuenta suspendida");
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   });
 
@@ -331,7 +332,7 @@ function UsersTable({
         isReset: true,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     } finally {
       setResettingId(null);
     }
@@ -386,9 +387,7 @@ function UsersTable({
           <EmptyState
             icon={Users}
             title="No se pudieron cargar los usuarios"
-            description={
-              error instanceof Error ? error.message : "Reintentá en unos segundos"
-            }
+            description={getApiErrorMessage(error)}
           />
         ) : filtered.length === 0 ? (
           <EmptyState

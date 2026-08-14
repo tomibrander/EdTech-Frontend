@@ -43,6 +43,7 @@ import {
   type AppUser,
 } from "@/features/users/hooks";
 import type { Student } from "@/types";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function CoursesListPage() {
   const [year, setYear] = React.useState<number | undefined>(new Date().getFullYear());
@@ -148,7 +149,7 @@ function BackfillGroupsButton() {
         res.failed.forEach((f) => toast.error(`${f.code}: ${f.reason}`));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   }
 
@@ -224,7 +225,7 @@ function BulkCoursesButton() {
       setOpen(false);
       setRaw("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos cargar");
+      toast.error(getApiErrorMessage(err));
     }
   };
 
@@ -311,7 +312,7 @@ function NewCourseButton() {
       setSelectedTeachers([]);
       setSelectedStudents([]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos crear");
+      toast.error(getApiErrorMessage(err));
     }
   });
 

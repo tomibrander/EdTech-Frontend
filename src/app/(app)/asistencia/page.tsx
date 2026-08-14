@@ -35,6 +35,7 @@ import { useAttendance, useSubmitAttendance } from "@/features/attendance/hooks"
 import { useSession } from "@/features/auth/useSession";
 import type { AttendanceStatus } from "@/types";
 import { cn, getInitials } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -204,7 +205,7 @@ export default function AttendancePage() {
           : "Asistencia registrada"
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos guardar");
+      toast.error(getApiErrorMessage(err));
     }
   }
 

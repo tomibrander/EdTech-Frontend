@@ -33,6 +33,8 @@ import {
 } from "@/features/courses/hooks";
 import { useGroups } from "@/features/workspace/hooks";
 import { getInitials } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/client";
+import { ClassroomLinkCard } from "./ClassroomLinkCard";
 
 export default function CourseDetailPage({
   params,
@@ -57,6 +59,7 @@ export default function CourseDetailPage({
       />
 
       <CourseGroupCard courseId={id} />
+      <ClassroomLinkCard courseId={id} />
 
       <Card>
         <CardHeader>
@@ -92,7 +95,7 @@ export default function CourseDetailPage({
                         await remove.mutateAsync(s.id);
                         toast.success("Alumno quitado");
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Error");
+                        toast.error(getApiErrorMessage(err));
                       }
                     }}
                   >
@@ -181,7 +184,7 @@ function GroupLinkDialog({
       toast.success("Grupo vinculado, sincronizando alumnos…");
       handleClose(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   }
 
@@ -192,7 +195,7 @@ function GroupLinkDialog({
       toast.success("Grupo creado y vinculado");
       handleClose(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   }
 
@@ -381,7 +384,7 @@ function AddStudentDialog({ courseId }: { courseId: string }) {
                 toast.success("Alumno agregado");
                 handleClose(false);
               } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Error");
+                toast.error(getApiErrorMessage(err));
               }
             }}
             disabled={add.isPending || !selected}

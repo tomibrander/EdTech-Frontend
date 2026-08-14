@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/data/EmptyState";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RoleGate } from "@/components/auth/RoleGate";
+import { getApiErrorMessage } from "@/lib/api/client";
 import {
   useAddGroupMember,
   useCreateGroup,
@@ -117,7 +118,7 @@ function ManageMemberPopover({ groupEmail }: { groupEmail: string }) {
       toast.success("Miembro agregado");
       setEmail("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   }
 
@@ -126,7 +127,7 @@ function ManageMemberPopover({ groupEmail }: { groupEmail: string }) {
       await remove.mutateAsync({ groupEmail, memberEmail });
       toast.success("Miembro quitado");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   }
 
@@ -213,7 +214,7 @@ function CreateGroupCard() {
       toast.success("Grupo creado");
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   });
 
