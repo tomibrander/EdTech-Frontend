@@ -144,6 +144,18 @@ export function useCreateCourseGroup(courseId: string) {
   });
 }
 
+export function useLinkClassroomCourse(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (classroomCourseId: string) =>
+      (await api.patch<Course>(`/courses/${courseId}`, { classroomCourseId }))
+        .data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses", courseId] });
+    },
+  });
+}
+
 export function useCourseStudents(courseId: string) {
   return useQuery({
     queryKey: ["courses", courseId, "students"],
