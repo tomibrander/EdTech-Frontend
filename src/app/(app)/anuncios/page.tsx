@@ -27,6 +27,7 @@ import {
   useCreateAnnouncement,
 } from "@/features/messages/hooks";
 import { formatDateTime, fromNow } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function AnnouncementsPage() {
   const { data, isLoading } = useAnnouncements();
@@ -37,7 +38,7 @@ export default function AnnouncementsPage() {
         title="Anuncios"
         description="Novedades, notas y avisos generales"
         actions={
-          <RoleGate roles={["superadmin", "director", "docente"]}>
+          <RoleGate roles={["superadmin", "director", "docente"]} fallback={null}>
             <NewAnnouncementDialog />
           </RoleGate>
         }
@@ -130,7 +131,7 @@ function NewAnnouncementDialog() {
       setOpen(false);
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   });
 
