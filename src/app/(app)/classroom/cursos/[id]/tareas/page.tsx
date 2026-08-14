@@ -33,6 +33,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/data/EmptyState";
 import { useCourseWork, useCreateCourseWork } from "@/features/classroom/hooks";
 import { formatDate, fromNow } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function CourseWorkPage({
   params,
@@ -137,7 +138,7 @@ function NewWorkDialog({ courseId }: { courseId: string }) {
       setOpen(false);
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   });
 

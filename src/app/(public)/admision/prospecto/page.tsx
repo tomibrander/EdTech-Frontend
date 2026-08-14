@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useCreateProspect } from "@/features/admissions/hooks";
 import { prospectCreateSchema, type ProspectCreateValues } from "@/features/admissions/schemas";
 import { tenantConfig } from "@/config/tenant.config";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function PublicProspectFormPage() {
   const create = useCreateProspect();
@@ -28,7 +29,7 @@ export default function PublicProspectFormPage() {
       toast.success("Recibimos tu solicitud. Te vamos a contactar por email.");
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos registrar la solicitud");
+      toast.error(getApiErrorMessage(err));
     }
   });
 

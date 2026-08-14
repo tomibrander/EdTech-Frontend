@@ -28,6 +28,7 @@ import { DASHBOARD_PATH, type Role } from "@/config/roles";
 import { useGoogleLogin, useLogin } from "@/features/auth/hooks";
 import { loginSchema, type LoginValues } from "@/features/auth/schemas";
 import { GoogleSignInButton } from "@/features/auth/GoogleSignInButton";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
@@ -63,7 +64,7 @@ function LoginContent() {
       const res = await login.mutateAsync(values);
       handleSuccess(res.user);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Credenciales inválidas");
+      toast.error(getApiErrorMessage(err));
     }
   });
 
@@ -72,9 +73,7 @@ function LoginContent() {
       const res = await googleLogin.mutateAsync(idToken);
       handleSuccess(res.user);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No pudimos iniciar sesión con Google",
-      );
+      toast.error(getApiErrorMessage(err));
     }
   };
 

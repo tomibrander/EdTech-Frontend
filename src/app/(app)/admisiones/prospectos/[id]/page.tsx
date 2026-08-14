@@ -41,6 +41,7 @@ import {
 } from "@/features/admissions/schemas";
 import type { ProspectStatus } from "@/types";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 const STATUSES: ProspectStatus[] = [
   "pendiente",
@@ -69,7 +70,7 @@ export default function ProspectDetailPage({
       setComment("");
       setNewStatus("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos actualizar");
+      toast.error(getApiErrorMessage(err));
     }
   }
 
@@ -218,7 +219,7 @@ function EnrollButton({ prospectId }: { prospectId: string }) {
       setOpen(false);
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos dar de alta");
+      toast.error(getApiErrorMessage(err));
     }
   });
 

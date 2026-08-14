@@ -41,6 +41,7 @@ import {
 } from "@/features/users/hooks";
 import { ROLE_LABELS, type Role } from "@/config/roles";
 import { formatDate } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 const ASSIGNABLE_ROLES: Role[] = [
   "director",
@@ -101,9 +102,7 @@ function PendingTable() {
           <EmptyState
             icon={Users}
             title="No se pudieron cargar los pendientes"
-            description={
-              error instanceof Error ? error.message : "Reintentá en un momento"
-            }
+            description={getApiErrorMessage(error)}
           />
         ) : !data?.length ? (
           <EmptyState
@@ -150,7 +149,7 @@ function PendingUserRow({ user }: { user: AppUser }) {
       );
       setSelected("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   };
 
@@ -224,7 +223,7 @@ function AllUsersTable() {
       await assign.mutateAsync({ id: user.id, role });
       toast.success(`${user.email}: ${ROLE_LABELS[role]}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     } finally {
       setEditingId(null);
     }
@@ -237,7 +236,7 @@ function AllUsersTable() {
         `Reconciliación completa: ${result.createdStudents} creados, ${result.updatedStudents} actualizados (${result.processedUsers} usuarios alumno procesados).`,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
+      toast.error(getApiErrorMessage(err));
     }
   };
 

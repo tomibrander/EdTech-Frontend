@@ -14,6 +14,7 @@ import {
   jobApplicationSchema,
   type JobApplicationValues,
 } from "@/features/admissions/schemas";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function PublicJobApplicationPage() {
   const create = useCreateJobApplication();
@@ -30,7 +31,7 @@ export default function PublicJobApplicationPage() {
       toast.success("Postulación recibida");
       reset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos enviar la postulación");
+      toast.error(getApiErrorMessage(err));
     }
   });
 

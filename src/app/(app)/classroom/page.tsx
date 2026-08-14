@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/data/EmptyState";
 import { useClassroomCourses } from "@/features/classroom/hooks";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 export default function ClassroomCoursesPage() {
   const { data, isLoading, isError, error } = useClassroomCourses();
@@ -30,9 +31,7 @@ export default function ClassroomCoursesPage() {
         <EmptyState
           icon={ClipboardList}
           title="No se pudieron cargar las materias"
-          description={
-            error instanceof Error ? error.message : "Reintentá en unos segundos"
-          }
+          description={getApiErrorMessage(error)}
         />
       ) : data && data.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
