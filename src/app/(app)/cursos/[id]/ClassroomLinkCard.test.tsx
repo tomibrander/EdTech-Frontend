@@ -3,8 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClassroomLinkCard, ClassroomLinkDialog } from "./ClassroomLinkCard";
 
-const mutateAsync = vi.fn();
-let mockCourse: { classroomCourseId?: string } = {};
+const addMutateAsync = vi.fn();
+const removeMutateAsync = vi.fn();
+let mockCourse: { classroomCourseIds?: string[] } = {};
 const mockClassroomCourses = [
   { id: "gc_1", name: "Matemática", section: "5to A" },
   { id: "gc_2", name: "Lengua", section: "5to A" },
@@ -12,7 +13,11 @@ const mockClassroomCourses = [
 
 vi.mock("@/features/courses/hooks", () => ({
   useCourse: () => ({ data: mockCourse }),
-  useLinkClassroomCourse: () => ({ mutateAsync, isPending: false }),
+  useAddClassroomLink: () => ({ mutateAsync: addMutateAsync, isPending: false }),
+  useRemoveClassroomLink: () => ({
+    mutateAsync: removeMutateAsync,
+    isPending: false,
+  }),
 }));
 
 vi.mock("@/features/classroom/hooks", () => ({
@@ -21,47 +26,77 @@ vi.mock("@/features/classroom/hooks", () => ({
 
 describe("ClassroomLinkCard", () => {
   beforeEach(() => {
-    mutateAsync.mockReset();
+    addMutateAsync.mockReset();
+    removeMutateAsync.mockReset();
     mockCourse = {};
   });
 
-  it("muestra el aviso de 'no vinculado' y el botón para vincular cuando no hay classroomCourseId", () => {
+  it("muestra el aviso de 'no vinculado' cuando classroomCourseIds está vacío", () => {
     render(<ClassroomLinkCard courseId="course_A" />);
     expect(
-      screen.getByText(/todavía no está vinculado a una materia/i),
+      screen.getByText(/no tiene ninguna materia de Google Classroom/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /vincular a classroom/i }),
+      screen.getByRole("button", { name: /vincular materia/i }),
     ).toBeInTheDocument();
   });
 
-  it("muestra el nombre de la materia y los links de Tareas/Notas cuando ya está vinculado", () => {
-    mockCourse = { classroomCourseId: "gc_1" };
+  it("lista cada materia vinculada con sus links de Tareas/Notas", () => {
+    mockCourse = { classroomCourseIds: ["gc_1", "gc_2"] };
     render(<ClassroomLinkCard courseId="course_A" />);
     expect(screen.getByText("Matemática")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /tareas/i })).toHaveAttribute(
+    expect(screen.getByText("Lengua")).toBeInTheDocument();
+
+    const tareasLinks = screen.getAllByRole("link", { name: /tareas/i });
+    expect(tareasLinks).toHaveLength(2);
+    expect(tareasLinks[0]).toHaveAttribute(
       "href",
       "/classroom/cursos/gc_1/tareas",
     );
-    expect(screen.getByRole("link", { name: /notas/i })).toHaveAttribute(
+    expect(tareasLinks[1]).toHaveAttribute(
       "href",
-      "/classroom/cursos/gc_1/calificaciones",
+      "/classroom/cursos/gc_2/tareas",
     );
+  });
+
+  it("desvincula una materia al clickear la X", async () => {
+    mockCourse = { classroomCourseIds: ["gc_1"] };
+    removeMutateAsync.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<ClassroomLinkCard courseId="course_A" />);
+
+    await user.click(screen.getByRole("button", { name: /desvincular/i }));
+
+    await waitFor(() => expect(removeMutateAsync).toHaveBeenCalledWith("gc_1"));
   });
 });
 
 describe("ClassroomLinkDialog", () => {
   beforeEach(() => {
-    mutateAsync.mockReset();
-    mutateAsync.mockResolvedValue(undefined);
+    addMutateAsync.mockReset();
+    addMutateAsync.mockResolvedValue(undefined);
   });
 
-  it("llama a mutateAsync con el classroomCourseId elegido al confirmar", async () => {
+  it("solo ofrece materias todavía no vinculadas", () => {
+    render(
+      <ClassroomLinkDialog
+        courseId="course_A"
+        linkedIds={["gc_1"]}
+        open={true}
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Matemática")).not.toBeInTheDocument();
+    expect(screen.getByText("Lengua — 5to A")).toBeInTheDocument();
+  });
+
+  it("llama a mutateAsync con la materia elegida al confirmar", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     render(
       <ClassroomLinkDialog
         courseId="course_A"
+        linkedIds={[]}
         open={true}
         onOpenChange={onOpenChange}
       />,
@@ -70,13 +105,6 @@ describe("ClassroomLinkDialog", () => {
     await user.selectOptions(screen.getByRole("combobox"), "gc_2");
     await user.click(screen.getByRole("button", { name: /^vincular$/i }));
 
-    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith("gc_2"));
-  });
-
-  it("el botón de vincular está deshabilitado sin selección", () => {
-    render(
-      <ClassroomLinkDialog courseId="course_A" open={true} onOpenChange={vi.fn()} />,
-    );
-    expect(screen.getByRole("button", { name: /^vincular$/i })).toBeDisabled();
+    await waitFor(() => expect(addMutateAsync).toHaveBeenCalledWith("gc_2"));
   });
 });
