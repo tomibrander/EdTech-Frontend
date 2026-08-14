@@ -89,7 +89,7 @@ export interface Course {
   id: string;
   name: string;
   year: number;
-  classroomCourseId?: string;
+  classroomCourseIds?: string[];
   workspaceGroupEmail?: string;
   teacherId?: string;
   teacherName?: string;

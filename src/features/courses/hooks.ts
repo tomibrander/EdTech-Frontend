@@ -144,12 +144,30 @@ export function useCreateCourseGroup(courseId: string) {
   });
 }
 
-export function useLinkClassroomCourse(courseId: string) {
+export function useAddClassroomLink(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (classroomCourseId: string) =>
-      (await api.patch<Course>(`/courses/${courseId}`, { classroomCourseId }))
-        .data,
+      (
+        await api.post<Course>(`/courses/${courseId}/classroom`, {
+          classroomCourseId,
+        })
+      ).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courses", courseId] });
+    },
+  });
+}
+
+export function useRemoveClassroomLink(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (classroomCourseId: string) =>
+      (
+        await api.delete<Course>(
+          `/courses/${courseId}/classroom/${classroomCourseId}`,
+        )
+      ).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["courses", courseId] });
     },
