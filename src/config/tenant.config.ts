@@ -14,6 +14,30 @@
 
 export type HSL = { h: number; s: number; l: number };
 
+export interface ThemeColors {
+  primary: HSL;
+  primaryForeground: HSL;
+  secondary: HSL;
+  secondaryForeground: HSL;
+  accent: HSL;
+  accentForeground: HSL;
+  background: HSL;
+  foreground: HSL;
+  card: HSL;
+  cardForeground: HSL;
+  muted: HSL;
+  mutedForeground: HSL;
+  border: HSL;
+  input: HSL;
+  ring: HSL;
+  destructive: HSL;
+  destructiveForeground: HSL;
+  success: HSL;
+  successForeground: HSL;
+  warning: HSL;
+  warningForeground: HSL;
+}
+
 export interface TenantConfig {
   id: string;
   name: string;
@@ -24,29 +48,8 @@ export interface TenantConfig {
   favicon: string;
   theme: {
     radius: string;
-    colors: {
-      primary: HSL;
-      primaryForeground: HSL;
-      secondary: HSL;
-      secondaryForeground: HSL;
-      accent: HSL;
-      accentForeground: HSL;
-      background: HSL;
-      foreground: HSL;
-      card: HSL;
-      cardForeground: HSL;
-      muted: HSL;
-      mutedForeground: HSL;
-      border: HSL;
-      input: HSL;
-      ring: HSL;
-      destructive: HSL;
-      destructiveForeground: HSL;
-      success: HSL;
-      successForeground: HSL;
-      warning: HSL;
-      warningForeground: HSL;
-    };
+    colors: ThemeColors;
+    colorsDark: ThemeColors;
   };
   features: {
     admisiones: boolean;
@@ -103,6 +106,34 @@ const defaultTenant: TenantConfig = {
       warning:              { h: 32,  s: 75, l: 48 },
       warningForeground:    { h: 30, s: 50, l: 14 },
     },
+    colorsDark: {
+      // Tenant brand — mismo hue, más claro para contrastar sobre fondo oscuro
+      primary:              { h: 28, s: 60, l: 58 },
+      primaryForeground:    { h: 30, s: 25, l: 10 },
+      ring:                 { h: 28, s: 60, l: 58 },
+      accent:               { h: 28, s: 35, l: 22 },
+      accentForeground:     { h: 28, s: 55, l: 90 },
+
+      // Producto — warm-ink dark neutrals (hue 30°, invertido)
+      background:           { h: 30, s: 18, l: 10 }, // ink cálido
+      foreground:            { h: 38, s: 30, l: 92 }, // paper
+      card:                 { h: 30, s: 16, l: 13 },
+      cardForeground:       { h: 38, s: 30, l: 92 },
+      muted:                { h: 30, s: 14, l: 18 },
+      mutedForeground:      { h: 35, s: 15, l: 65 },
+      border:               { h: 30, s: 14, l: 22 },
+      input:                { h: 30, s: 14, l: 20 },
+      secondary:            { h: 30, s: 14, l: 20 },
+      secondaryForeground:  { h: 38, s: 30, l: 92 },
+
+      // Estados — armonizan con la paleta cálida oscura
+      destructive:          { h: 8,   s: 55, l: 55 },
+      destructiveForeground:{ h: 30, s: 25, l: 10 },
+      success:              { h: 80,  s: 30, l: 55 },
+      successForeground:    { h: 30, s: 25, l: 10 },
+      warning:              { h: 32,  s: 65, l: 55 },
+      warningForeground:    { h: 30, s: 25, l: 10 },
+    },
   },
   features: {
     admisiones: true,
@@ -150,6 +181,13 @@ const sanMartinTenant: TenantConfig = {
       accent:  { h: 356, s: 50, l: 92 },
       accentForeground: { h: 356, s: 60, l: 28 },
     },
+    colorsDark: {
+      ...defaultTenant.theme.colorsDark,
+      primary: { h: 356, s: 65, l: 62 },
+      ring:    { h: 356, s: 65, l: 62 },
+      accent:  { h: 356, s: 30, l: 22 },
+      accentForeground: { h: 356, s: 55, l: 90 },
+    },
   },
   textos: {
     ...defaultTenant.textos,
@@ -173,11 +211,9 @@ export function hsl(v: HSL): string {
   return `${v.h} ${v.s}% ${v.l}%`;
 }
 
-/** Devuelve todas las CSS variables del tema actual como string inline. */
-export function tenantCssVariables(t: TenantConfig = tenantConfig): string {
-  const c = t.theme.colors;
+/** Serializa un set de colores del tema a variables CSS `--nombre:valor`. */
+function themeColorVariables(c: ThemeColors): string[] {
   return [
-    `--radius:${t.theme.radius}`,
     `--background:${hsl(c.background)}`,
     `--foreground:${hsl(c.foreground)}`,
     `--card:${hsl(c.card)}`,
@@ -201,5 +237,15 @@ export function tenantCssVariables(t: TenantConfig = tenantConfig): string {
     `--border:${hsl(c.border)}`,
     `--input:${hsl(c.input)}`,
     `--ring:${hsl(c.ring)}`,
-  ].join(";");
+  ];
+}
+
+/** Variables CSS del tema claro (incluye --radius) para inyectar en :root. */
+export function tenantCssVariables(t: TenantConfig = tenantConfig): string {
+  return [`--radius:${t.theme.radius}`, ...themeColorVariables(t.theme.colors)].join(";");
+}
+
+/** Variables CSS del tema oscuro para inyectar bajo el selector .dark. */
+export function tenantCssVariablesDark(t: TenantConfig = tenantConfig): string {
+  return themeColorVariables(t.theme.colorsDark).join(";");
 }
