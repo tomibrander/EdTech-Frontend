@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sidebar } from "./Sidebar";
 import { RoleBadge } from "./RoleBadge";
+import { ThemeToggle } from "./ThemeToggle";
 import { useSession } from "@/features/auth/useSession";
 import { useLogout } from "@/features/auth/hooks";
 import { useUnreadCount } from "@/features/messages/hooks";
@@ -75,6 +76,7 @@ export function Topbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
         <Button variant="ghost" size="icon" aria-label="Notificaciones" asChild>
           <Link href="/mensajes" className="relative">
             <Bell className="h-5 w-5" />

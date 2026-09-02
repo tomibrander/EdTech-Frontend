@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { tenantConfig, tenantCssVariables } from "@/config/tenant.config";
+import { tenantConfig, tenantCssVariables, tenantCssVariablesDark } from "@/config/tenant.config";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style
           // eslint-disable-next-line react/no-unknown-property
           dangerouslySetInnerHTML={{
-            __html: `:root{${tenantCssVariables()}}`,
+            __html: `:root{${tenantCssVariables()}}.dark{${tenantCssVariablesDark()}}`,
           }}
         />
         <Providers>{children}</Providers>
